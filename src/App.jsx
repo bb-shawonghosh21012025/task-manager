@@ -8,7 +8,8 @@ import ReactFlow, {
   useEdgesState,
 } from 'reactflow';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
-import NodeForm from './components/NodeForm';
+import TaskForm from './components/TaskForm';
+import ProcessForm from './components/ProcessForm';
 import { Sidebar } from './components/Sidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { ProcessNode } from './components/CustomNodes';
@@ -87,10 +88,9 @@ function App() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [showNodeForm, setShowNodeForm] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [taskTemplates, setTaskTemplates] = useState([]);
-  
 
   // Handle node connections
   const onConnect = useCallback((params) => {
@@ -100,7 +100,7 @@ function App() {
   // Handle node selection for editing
   const onNodeDoubleClick = useCallback((_, node) => {
     setSelectedNode(node);
-    setShowNodeForm(true);
+    setShowTaskForm(true);
   }, []);
 
   // Handle saving flow templates
@@ -140,11 +140,7 @@ function App() {
   const handleDeleteTaskTemplate = useCallback((id) => {
     setTaskTemplates(prev => prev.filter(template => template.id !== id));
   }, []);
-  const handleTasksImported = ({ nodes, edges }) => {
-    setNodes(nodes);
-    setEdges(edges);
-  };
-  
+
   const handleLoadTemplate = ({ nodes, edges }) => {
     setNodes(nodes);
     setEdges(edges);
@@ -174,7 +170,6 @@ function App() {
           }));
 
           const newEdges = data.edges.map(edge => {
-            // Find the new IDs of the source and target nodes
             const sourceNode = newNodes.find(n => 
               n.id.includes(edge.source.split('-')[0])
             );
@@ -230,10 +225,11 @@ function App() {
         position,
         data: { 
           label: type.charAt(0).toUpperCase() + type.slice(1),
-          description: '',
-          assignee: '',
-          dueDate: '',
-          priority: 'medium',
+          name: '',
+          process_slug: '',
+          input_format: '{}',
+          header: '{}',
+          email_id: '',
         },
       };
 
@@ -242,7 +238,7 @@ function App() {
   }, [nodes, setNodes, setEdges]);
 
   // Handle node updates
-  const handleNodeUpdate = useCallback((nodeData) => {
+  const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
     setNodes(nds =>
       nds.map(node =>
         node.id === selectedNode.id
@@ -250,8 +246,22 @@ function App() {
           : node
       )
     );
-    setShowNodeForm(false);
-  }, [selectedNode, setNodes]);
+    if (saveAsTemplate && selectedNode.type === 'task') {
+      const template = {
+        id: Date.now().toString(),
+        type: 'task',
+        nodes: [{
+          type: 'task',
+          data: { ...nodeData },
+          // We don't include position in template as it will be set on drop
+        }],
+        timestamp: new Date().toISOString(),
+      };
+      setTaskTemplates(prev => [...prev, template]);
+    }
+
+    setShowTaskForm(false);
+  }, [selectedNode, setNodes, setTaskTemplates]);
 
   return (
     <div style={styles.container}>
@@ -293,14 +303,22 @@ function App() {
           </button>
         </ReactFlow>
 
-        {/* Node Form Modal */}
-        {showNodeForm && (
-          <NodeForm
-            node={selectedNode}
-            onClose={() => setShowNodeForm(false)}
-            onSave={handleNodeUpdate}
-            onSaveTemplate={handleSaveTaskTemplate}
-          />
+        {/* Conditional Form Rendering */}
+        {showTaskForm && selectedNode && (
+          selectedNode.type === 'process' ? (
+            <ProcessForm
+              node={selectedNode}
+              onClose={() => setShowTaskForm(false)}
+              onSave={handleNodeUpdate}
+            />
+          ) : (
+            <TaskForm
+              node={selectedNode}
+              onClose={() => setShowTaskForm(false)}
+              onSave={handleNodeUpdate}
+              onSaveTemplate={handleSaveTaskTemplate}
+            />
+          )
         )}
       </div>
 
@@ -319,8 +337,8 @@ function App() {
           <TemplatesSidebar
             templates={templates}
             taskTemplates={taskTemplates}
-            onDeleteTemplate={(id) => {handleDeleteTaskTemplate}}
-            onDeleteTaskTemplate={(id) => {handleDeleteTaskTemplate}}
+            onDeleteTemplate={handleDeleteTemplate}
+            onDeleteTaskTemplate={handleDeleteTaskTemplate}
             existingNodes={nodes}
             onLoadTemplate={handleLoadTemplate}
           />

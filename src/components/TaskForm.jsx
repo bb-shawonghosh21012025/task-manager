@@ -89,7 +89,7 @@ const styles = {
   }
 };
 
-const NodeForm = ({ node, onClose, onSave }) => {
+const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
   const [formData, setFormData] = useState({
     name: node.data.name || '',
     slug: node.data.slug || '',
@@ -150,6 +150,20 @@ const NodeForm = ({ node, onClose, onSave }) => {
     }
 
     onSave(formData);
+  };
+  const handleSaveTemplate = () => {
+    console.log(node)
+    // Create a template object from the current form data
+    const template = {
+      id: Date.now().toString(),
+      type: 'task',
+      timestamp: new Date().toISOString(),
+      data: { 
+        ...formData,
+        label: formData.name || node.data.label // Ensure we have a label for display
+      }
+    };
+    onSaveTemplate(template);
   };
 
   return (
@@ -397,12 +411,26 @@ const NodeForm = ({ node, onClose, onSave }) => {
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              style={{ ...styles.button, ...styles.primaryButton }}
-            >
-              Save
-            </button>
+            <div>
+              <button
+                type="button"
+                onClick={handleSaveTemplate}
+                style={{ 
+                  ...styles.button, 
+                  ...styles.primaryButton,
+                  marginRight: '10px',
+                  background: '#34a853' 
+                }}
+              >
+                Save as Template
+              </button>
+              <button
+                type="submit"
+                style={{ ...styles.button, ...styles.primaryButton }}
+              >
+                Save
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -410,4 +438,4 @@ const NodeForm = ({ node, onClose, onSave }) => {
   );
 };
 
-export default NodeForm;
+export default TaskForm;
