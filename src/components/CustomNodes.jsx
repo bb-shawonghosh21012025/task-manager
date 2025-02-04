@@ -44,21 +44,21 @@ export const ProcessNode = memo(({ data, type }) => {
     }}>
       {type === 'task' && (
         <Handle
-          type="source"
-          position={Position.Right}
+          type="target"
+          position={Position.Top}
           style={styles.handle}
         />
       )}
       <div style={styles.content}>
-        <div style={styles.label}>{data.label}</div>
+        <div style={styles.label}>{data.slug || data.process_slug || type}</div>
         {data.description && (
           <div style={styles.description}>{data.description}</div>
         )}
       </div>
-      {type === 'process' && (
+      {(
         <Handle
-          type="target"
-          position={Position.Left}
+          type="source"
+          position={Position.Bottom}
           style={styles.handle}
         />
       )}

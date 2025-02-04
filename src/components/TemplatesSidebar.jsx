@@ -24,133 +24,6 @@ const sharedStyles = {
   }
 };
 
-// Main Sidebar for importing tasks
-export const Sidebar = ({ onTasksImported, onSaveTaskTemplate }) => {
-  const [error, setError] = useState(null);
-
-  const onDragStart = (event, nodeType) => {
-    event.dataTransfer.setData('application/reactflow', nodeType);
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
-  const parseCsv = (content) => {
-    const lines = content.split('\n');
-    const headers = lines[0].split(',');
-    
-    return lines.slice(1)
-      .filter(line => line.trim())
-      .map(line => {
-        const values = line.split(',');
-        const task = {};
-        headers.forEach((header, index) => {
-          task[header] = values[index];
-        });
-        return task;
-      });
-  };
-
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const tasks = parseCsv(e.target.result);
-        
-        // Create nodes and edges
-        const nodes = tasks.map((task, index) => ({
-          id: task.slug,
-          type: 'task',
-          position: { x: 100 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 150 },
-          data: { 
-            label: task.name || task.slug,
-            ...task
-          }
-        }));
-
-        const edges = tasks
-          .filter(task => task.dependent_task_slug)
-          .map(task => ({
-            id: `${task.dependent_task_slug}-${task.slug}`,
-            source: task.dependent_task_slug,
-            target: task.slug,
-            type: 'smoothstep'
-          }));
-
-        onTasksImported({ nodes, edges });
-        
-        // Auto-save as template
-        const template = {
-          id: Date.now().toString(),
-          nodes,
-          edges,
-          timestamp: new Date().toISOString()
-        };
-        onSaveTaskTemplate(template);
-        
-        setError(null);
-      } catch (error) {
-        setError('Error parsing CSV file');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  return (
-    <div style={sharedStyles.container}>
-      <h2>Nodes</h2>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <div
-          style={{
-            padding: '10px',
-            border: '2px solid #1a73e8',
-            borderRadius: '4px',
-            cursor: 'move',
-            textAlign: 'center'
-          }}
-          onDragStart={(e) => onDragStart(e, 'process')}
-          draggable
-        >
-          Process
-        </div>
-        <div
-          style={{
-            padding: '10px',
-            border: '2px solid #4caf50',
-            borderRadius: '4px',
-            cursor: 'move',
-            textAlign: 'center'
-          }}
-          onDragStart={(e) => onDragStart(e, 'task')}
-          draggable
-        >
-          Task
-        </div>
-      </div>
-
-      <button 
-        style={sharedStyles.button}
-        onClick={() => document.getElementById('csvInput').click()}
-      >
-        Import Tasks from CSV
-      </button>
-      
-      <input
-        id="csvInput"
-        type="file"
-        accept=".csv"
-        style={{ display: 'none' }}
-        onChange={handleFileUpload}
-      />
-
-      {error && (
-        <div style={{ color: 'red', marginTop: '10px' }}>{error}</div>
-      )}
-    </div>
-  );
-};
 
 // Templates Sidebar with additional task template handling
 export const TemplatesSidebar = ({ 
@@ -162,19 +35,37 @@ export const TemplatesSidebar = ({
   onLoadTemplate 
 }) => {
   const handleDragStart = (event, template, type) => {
-    if (existingNodes.length > 0) {
-      event.preventDefault();
-      return;
-    }
+    // if (existingNodes.length > 0) {
+    //   event.preventDefault();
+    //   return;
+    // }
 
-    let transferData = {
+    event.dataTransfer.setData("application/reactflow",type);
+    
+    if(type === 'task'){
+    console.log(template);
+
+    // let transferData = {
+    //   type,
+    //   nodes: type === 'flow' ? template.nodes : [template],
+    //   edges: type === 'flow' ? template.edges : []
+    // };
+    
+    // console.log(transferData);
+
+    event.dataTransfer.setData('application/reactflow-template', JSON.stringify(template));
+    event.dataTransfer.effectAllowed = 'move';
+    }else if(type === "flow"){
+      let transferData = {
       type,
       nodes: type === 'flow' ? template.nodes : [template],
       edges: type === 'flow' ? template.edges : []
-    };
+     };
 
-    event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
-    onLoadTemplate(transferData);
+     event.dataTransfer.setData('application/reactflow-template', JSON.stringify(template));
+     event.dataTransfer.effectAllowed = 'move';
+     onLoadTemplate(transferData);
+    }
   };
 
   return (

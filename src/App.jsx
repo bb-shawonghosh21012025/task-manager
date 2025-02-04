@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactFlow, { 
   Background,
   Controls,
@@ -109,7 +109,7 @@ function App() {
       alert('Cannot save empty template');
       return;
     }
-
+    
     const template = {
       id: Date.now().toString(),
       nodes: nodes.map(node => ({
@@ -124,10 +124,11 @@ function App() {
 
   // Handle saving task templates
   const handleSaveTaskTemplate = useCallback((taskNode) => {
+    // console.log(taskNode);
     const template = {
       ...taskNode,
       id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
+      // timestamp: new Date().toISOString(),
     };
     setTaskTemplates(prev => [...prev, template]);
   }, []);
@@ -161,6 +162,7 @@ function App() {
     if (templateData) {
       try {
         const data = JSON.parse(templateData);
+        console.log(data);
         
         if (data.type === 'flow' && nodes.length === 0) {
           // Generate new IDs for nodes and edges to avoid conflicts
@@ -194,10 +196,10 @@ function App() {
           };
           
           const newNode = {
-            ...data.nodes[0],
             id: `task-${Date.now()}`,
             position,
             type: 'task',
+            data:{...data.data,label:data.data.label}
           };
           
           setNodes((nds) => nds.concat(newNode));
@@ -239,13 +241,18 @@ function App() {
 
   // Handle node updates
   const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
+    console.log(nodeData);
+    // console.log(selectedNode);
+
     setNodes(nds =>
-      nds.map(node =>
+      nds.map(node =>(
+ 
         node.id === selectedNode.id
           ? { ...node, data: { ...node.data, ...nodeData } }
           : node
-      )
+        ))
     );
+
     if (saveAsTemplate && selectedNode.type === 'task') {
       const template = {
         id: Date.now().toString(),
@@ -262,6 +269,35 @@ function App() {
 
     setShowTaskForm(false);
   }, [selectedNode, setNodes, setTaskTemplates]);
+
+  useEffect(()=>{
+    edges.forEach((edge)=>{
+    const srcId = edge.source;
+    const tgtId = edge.target;
+
+    const srcNode = nodes.find((node)=>node.id === srcId);
+    const tgtNode = nodes.find((node)=>node.id === tgtId);
+
+    console.log(srcNode);
+    console.log(tgtNode);
+    console.log(srcId.includes("process"));
+    
+    if(srcId.includes("process") === true){
+      // console.log(srcNode.data.header);
+      setNodes((nds)=>nds.map(node => node.id === tgtId ? {...tgtNode,data:{...tgtNode.data,input:srcNode.data.header}}:node));
+    }else{
+      // console.log(srcNode.data.output_format);
+      setNodes((nds)=>nds.map(node=> node.id === tgtId ? {...tgtNode,data:{...tgtNode.data,input:srcNode.data.output_format}}:node));
+    }
+
+    // console.log(nodes);
+
+  })
+},[edges]);
+ 
+
+
+  // console.log(nodes);
 
   return (
     <div style={styles.container}>
