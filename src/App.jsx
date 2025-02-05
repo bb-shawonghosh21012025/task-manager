@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ReactFlow, { 
   Background,
   Controls,
@@ -6,6 +6,7 @@ import ReactFlow, {
   addEdge,
   useNodesState,
   useEdgesState,
+  ReactFlowProvider,
 } from 'reactflow';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import TaskForm from './components/TaskForm';
@@ -13,6 +14,7 @@ import ProcessForm from './components/ProcessForm';
 import { Sidebar } from './components/Sidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { ProcessNode } from './components/CustomNodes';
+import { useTemplateManagement } from './hooks/useTemplateManagement';
 
 // Register custom node types
 const nodeTypes = {
@@ -89,8 +91,23 @@ function App() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [templates, setTemplates] = useState([]);
+  // const [templates, setTemplates] = useState([]);
   const [taskTemplates, setTaskTemplates] = useState([]);
+  
+
+  const reactFlowWrapper = useRef(null);
+  const reactFlowInstance = useRef(null);
+  useEffect(()=>console.log(nodes),[edges]);
+  const { 
+    templates, 
+    saveTemplate, 
+    loadTemplate, 
+    deleteTemplate 
+  } = useTemplateManagement();
+
+  const onInit = (instance) => {
+    reactFlowInstance.current = instance;
+  };
 
   // Handle node connections
   const onConnect = useCallback((params) => {
@@ -103,24 +120,16 @@ function App() {
     setShowTaskForm(true);
   }, []);
 
-  // Handle saving flow templates
-  const handleSaveTemplate = useCallback(() => {
-    if (nodes.length === 0) {
-      alert('Cannot save empty template');
-      return;
-    }
+  const handleSaveTemplate = () => {
     
-    const template = {
-      id: Date.now().toString(),
-      nodes: nodes.map(node => ({
-        ...node,
-        position: { ...node.position }
-      })),
-      edges: edges,
-      timestamp: new Date().toISOString(),
-    };
-    setTemplates(prev => [...prev, template]);
-  }, [nodes, edges]);
+    if (!reactFlowInstance.current) return;
+    saveTemplate(reactFlowInstance.current);
+  };
+
+  const handleLoadTemplate = (template) => {
+    if (!reactFlowInstance.current) return;
+    loadTemplate(reactFlowInstance.current, template);
+  };
 
   // Handle saving task templates
   const handleSaveTaskTemplate = useCallback((taskNode) => {
@@ -128,7 +137,7 @@ function App() {
     const template = {
       ...taskNode,
       id: Date.now().toString(),
-      // timestamp: new Date().toISOString(),
+      // tihandleNodemestamp: new Date().toISOString(),
     };
     setTaskTemplates(prev => [...prev, template]);
   }, []);
@@ -142,10 +151,10 @@ function App() {
     setTaskTemplates(prev => prev.filter(template => template.id !== id));
   }, []);
 
-  const handleLoadTemplate = ({ nodes, edges }) => {
-    setNodes(nodes);
-    setEdges(edges);
-  };
+  // const handleLoadTemplate = ({ nodes, edges }) => {
+  //   setNodes(nodes);
+  //   setEdges(edges);
+  // };
 
   // Handle drag and drop
   const onDragOver = useCallback((event) => {
@@ -301,6 +310,8 @@ function App() {
 
   return (
     <div style={styles.container}>
+      <ReactFlowProvider>
+        <div ref={reactFlowWrapper} style={styles.container}>
       {/* Left Sidebar */}
       <div style={{
         ...styles.sidebar,
@@ -320,6 +331,7 @@ function App() {
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          onInit={onInit}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
@@ -373,7 +385,7 @@ function App() {
           <TemplatesSidebar
             templates={templates}
             taskTemplates={taskTemplates}
-            onDeleteTemplate={handleDeleteTemplate}
+            onDeleteTemplate={deleteTemplate}
             onDeleteTaskTemplate={handleDeleteTaskTemplate}
             existingNodes={nodes}
             onLoadTemplate={handleLoadTemplate}
@@ -381,6 +393,9 @@ function App() {
         )}
       </div>
     </div>
+    </ReactFlowProvider>
+  </div>
+
   );
 }
 

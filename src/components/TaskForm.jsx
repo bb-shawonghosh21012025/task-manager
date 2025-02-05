@@ -151,10 +151,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
 
     onSave(formData);
   };
-  
   const handleSaveTemplate = () => {
-    // console.log(node)
-    // Create a template object from the current form data
     const template = {
       id: Date.now().toString(),
       type: 'task',
@@ -165,6 +162,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
       }
     };
     onSaveTemplate(template);
+    onClose();
   };
 
   return (

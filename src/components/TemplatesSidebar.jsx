@@ -71,51 +71,56 @@ export const TemplatesSidebar = ({
   return (
     <div style={sharedStyles.container}>
       <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>
-          Saved Flow Templates
-        </h2>
+        <h3 style={{ marginBottom: '15px' }}>Saved Templates</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {templates.map((template) => (
             <div
               key={template.id}
               style={{
-                padding: '15px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                cursor: existingNodes.length > 0 ? 'not-allowed' : 'grab',
-                opacity: existingNodes.length > 0 ? 0.5 : 1,
-                position: 'relative'
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '10px',
+                padding: '10px',
+                background: '#f0f0f0',
+                borderRadius: '5px'
               }}
-              draggable={existingNodes.length === 0}
-              onDragStart={(e) => handleDragStart(e, template, 'flow')}
             >
-              <div style={{ fontSize: '16px', fontWeight: '500' }}>
-                Flow Template {template.id}
-              </div>
-              <div style={{ fontSize: '12px', color: '#666' }}>
-                {new Date(template.timestamp).toLocaleString()}
-              </div>
-              <div style={{ fontSize: '12px', color: '#666' }}>
-                {template.nodes.length} nodes, {template.edges.length} connections
+              <div style={{ flex: 1 }}>
+                Template from {new Date(template.metadata.createdAt).toLocaleString()}
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  {template.metadata.nodeCount} nodes, {template.metadata.edgeCount} edges
+                </div>
               </div>
               <button
+                onClick={() => onLoadTemplate(template)}
                 style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  background: 'none',
+                  marginRight: '10px',
+                  background: '#1a73e8',
+                  color: 'white',
                   border: 'none',
-                  cursor: 'pointer',
-                  color: '#ff4444'
+                  padding: '5px 10px',
+                  borderRadius: '4px'
                 }}
-                onClick={() => onDeleteTemplate(template.id)}
               >
-                <Trash2 size={16} />
+                Load
+              </button>
+              <button
+                onClick={() => onDeleteTemplate(template.id)}
+                style={{
+                  background: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  padding: '5px 10px',
+                  borderRadius: '4px'
+                }}
+              >
+                Delete
               </button>
             </div>
           ))}
         </div>
       </div>
+
 
       <div>
         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>
