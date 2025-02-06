@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect,useRef } from 'react';
 import ReactFlow, { 
   Background,
   Controls,
@@ -6,6 +6,7 @@ import ReactFlow, {
   addEdge,
   useNodesState,
   useEdgesState,
+  ReactFlowProvider,
 } from 'reactflow';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import TaskForm from './components/TaskForm';
@@ -13,6 +14,7 @@ import ProcessForm from './components/ProcessForm';
 import { Sidebar } from './components/Sidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { ProcessNode } from './components/CustomNodes';
+import { useTemplateManagement } from './hooks/useTemplateManagement';
 
 // Register custom node types
 const nodeTypes = {
@@ -89,9 +91,24 @@ function App() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [templates, setTemplates] = useState([]);
+  // const [templates, setTemplates] = useState([]);
   const [taskTemplates, setTaskTemplates] = useState([]);
+  
+  
+  const reactFlowWrapper = useRef(null);
+  const reactFlowInstance = useRef(null);
 
+  // useEffect(()=>console.log(nodes),[edges]);
+    const { 
+      templates, 
+      saveTemplate, 
+      loadTemplate, 
+      deleteTemplate 
+    } = useTemplateManagement();
+
+  const onInit = (instance) => {
+    reactFlowInstance.current = instance;
+  };
   // Handle node connections
   const onConnect = useCallback((params) => {
     setEdges((eds) => addEdge(params, eds));
@@ -103,33 +120,45 @@ function App() {
     setShowTaskForm(true);
   }, []);
 
+
   // Handle saving flow templates
-  const handleSaveTemplate = useCallback(() => {
+  const handleSaveTemplate = () => {
     if (nodes.length === 0) {
       alert('Cannot save empty template');
       return;
     }
     
-    const template = {
-      id: Date.now().toString(),
-      nodes: nodes.map(node => ({
-        ...node,
-        position: { ...node.position }
-      })),
-      edges: edges,
-      timestamp: new Date().toISOString(),
-    };
-    setTemplates(prev => [...prev, template]);
-  }, [nodes, edges]);
+    if (!reactFlowInstance.current) return;
+    saveTemplate(reactFlowInstance.current);
+  };
+
+  const handleLoadTemplate = (template) => {
+    if (!reactFlowInstance.current) return;
+    loadTemplate(reactFlowInstance.current, template);
+  };
+
+
 
   // Handle saving task templates
-  const handleSaveTaskTemplate = useCallback((taskNode) => {
+  const handleSaveTaskTemplate = useCallback(async(taskNode) => {
     // console.log(taskNode);
     const template = {
       ...taskNode,
-      id: Date.now().toString(),
+      id: `${"task"}-${Date.now()}-${Math.random()}`,
       // timestamp: new Date().toISOString(),
     };
+    // console.log(JSON.stringify(template));
+
+    const response = await fetch("http://localhost:8080/task",{
+      method:"POST",
+      headers:{ "Content-Type": "application/json"},
+      body: JSON.stringify(template)
+    });
+    
+    // const fresponse = await response.json();
+  
+    // console.log(response);
+
     setTaskTemplates(prev => [...prev, template]);
   }, []);
 
@@ -142,10 +171,6 @@ function App() {
     setTaskTemplates(prev => prev.filter(template => template.id !== id));
   }, []);
 
-  const handleLoadTemplate = ({ nodes, edges }) => {
-    setNodes(nodes);
-    setEdges(edges);
-  };
 
   // Handle drag and drop
   const onDragOver = useCallback((event) => {
@@ -270,7 +295,39 @@ function App() {
     setShowTaskForm(false);
   }, [selectedNode, setNodes, setTaskTemplates]);
 
+  const fetchTaskTemplates = async()=>{
+    try {
+      const response = await fetch("http://localhost:8080/tasks",{
+        method:"GET",
+       }
+      );
+      const resp = await response.json();
+      // console.log(resp);
+
+      const tempArray = [];
+
+      resp.forEach((template)=>{
+        const temp = {
+          id: template.id,
+          type: 'task',
+          timestamp: new Date().toISOString(),
+          data: { 
+          ...template,
+          label: template.name || 'task' // Ensure we have a label for display
+      }
+        };
+        tempArray.push(temp);
+      });
+      setTaskTemplates(tempArray);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(()=>{
+    
+    fetchTaskTemplates();
+
     edges.forEach((edge)=>{
     const srcId = edge.source;
     const tgtId = edge.target;
@@ -278,9 +335,7 @@ function App() {
     const srcNode = nodes.find((node)=>node.id === srcId);
     const tgtNode = nodes.find((node)=>node.id === tgtId);
 
-    console.log(srcNode);
-    console.log(tgtNode);
-    console.log(srcId.includes("process"));
+   
     
     if(srcId.includes("process") === true){
       // console.log(srcNode.data.header);
@@ -290,7 +345,7 @@ function App() {
       setNodes((nds)=>nds.map(node=> node.id === tgtId ? {...tgtNode,data:{...tgtNode.data,input:srcNode.data.output_format}}:node));
     }
 
-    // console.log(nodes);
+    console.log(nodes);
 
   })
 },[edges]);
@@ -302,6 +357,8 @@ function App() {
   return (
     <div style={styles.container}>
       {/* Left Sidebar */}
+      <ReactFlowProvider>
+      <div ref={reactFlowWrapper} style={styles.container}>
       <div style={{
         ...styles.sidebar,
         ...(leftSidebarOpen ? {} : styles.sidebarCollapsed),
@@ -320,6 +377,7 @@ function App() {
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          onInit={onInit}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
@@ -380,6 +438,8 @@ function App() {
           />
         )}
       </div>
+      </div>
+      </ReactFlowProvider>
     </div>
   );
 }

@@ -98,14 +98,14 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     input_format: node.data.input_format || '{}',
     output_format: node.data.output_format || '{}',
     dependent_task_slug: node.data.dependent_task_slug || '',
-    repeats_on: node.data.repeats_on || '',
+    repeats_on: node.data.repeats_on,
     bulk_input: node.data.bulk_input || false,
-    input_http_method: node.data.input_http_method || 'POST',
+    input_http_method: node.data.input_http_method,
     api_endpoint: node.data.api_endpoint || '',
     api_timeout_in_ms: node.data.api_timeout_in_ms || 30000,
-    response_type: node.data.response_type || 'JSON',
+    response_type: node.data.response_type ,
     is_json_input_needed: node.data.is_json_input_needed || false,
-    task_type: node.data.task_type || 'API',
+    task_type: node.data.task_type,
     is_active: node.data.is_active || true,
     is_optional: node.data.is_optional || false,
     eta: node.data.eta || '{}',
@@ -150,13 +150,14 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     }
 
     onSave(formData);
+    onClose();
   };
   
   const handleSaveTemplate = () => {
     // console.log(node)
     // Create a template object from the current form data
     const template = {
-      id: Date.now().toString(),
+      id: `${"task"}-${Date.now()}-${Math.random()}`,
       type: 'task',
       timestamp: new Date().toISOString(),
       data: { 
@@ -165,6 +166,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
       }
     };
     onSaveTemplate(template);
+    onClose();
   };
 
   return (
@@ -254,7 +256,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
             <div style={styles.formGroup}>
               <label style={styles.label}>Repeats On</label>
               <input
-                type="text"
+                type="number"
                 value={formData.repeats_on}
                 onChange={(e) => setFormData({ ...formData, repeats_on: e.target.value })}
                 style={styles.input}
@@ -273,16 +275,17 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
 
             <div style={styles.formGroup}>
               <label style={styles.label}>HTTP Method</label>
-              <select
+              <input
+                type="number"
                 value={formData.input_http_method}
                 onChange={(e) => setFormData({ ...formData, input_http_method: e.target.value })}
                 style={styles.input}
-              >
-                <option value="GET">GET</option>
+              />
+                {/* <option value="GET">GET</option>
                 <option value="POST">POST</option>
                 <option value="PUT">PUT</option>
                 <option value="DELETE">DELETE</option>
-              </select>
+              </select> */}
             </div>
 
             <div style={styles.formGroup}>
@@ -307,15 +310,16 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Response Type</label>
-              <select
+              <input
+                type='number'
                 value={formData.response_type}
                 onChange={(e) => setFormData({ ...formData, response_type: e.target.value })}
                 style={styles.input}
-              >
-                <option value="JSON">JSON</option>
+              />
+                {/* <option value="JSON">JSON</option>
                 <option value="XML">XML</option>
                 <option value="TEXT">TEXT</option>
-              </select>
+              </select> */}
             </div>
 
             <div style={styles.formGroup}>
@@ -330,15 +334,16 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Task Type</label>
-              <select
+              <input
+                type='number'
                 value={formData.task_type}
                 onChange={(e) => setFormData({ ...formData, task_type: e.target.value })}
                 style={styles.input}
-              >
-                <option value="API">API</option>
+              />
+                {/* <option value="API">API</option>
                 <option value="FUNCTION">FUNCTION</option>
                 <option value="SCRIPT">SCRIPT</option>
-              </select>
+              </select> */}
             </div>
 
             <div style={styles.formGroup}>
