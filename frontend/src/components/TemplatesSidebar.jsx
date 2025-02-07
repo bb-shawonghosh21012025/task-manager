@@ -32,7 +32,7 @@ export const TemplatesSidebar = ({
   onLoadTemplate 
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [apiTaskTemplates, setApiTaskTemplates] = useState([]);
+  // const [apiTaskTemplates, setApiTaskTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessDropdownOpen, setIsProcessDropdownOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -184,6 +184,7 @@ export const TemplatesSidebar = ({
               width: '100%',
               padding: '10px',
               display: 'flex',
+              fontFamily:'Ubuntu',
               justifyContent: 'space-between',
               alignItems: 'center',
               background: 'white',

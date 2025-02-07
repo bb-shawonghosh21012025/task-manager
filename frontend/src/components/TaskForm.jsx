@@ -70,6 +70,7 @@ const styles = {
   button: {
     padding: '8px 16px',
     border: 'none',
+    fontFamily:'Ubuntu',
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '14px',

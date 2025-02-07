@@ -73,6 +73,7 @@ const styles = {
     padding: '8px 16px',
     border: 'none',
     borderRadius: '4px',
+    fontFamily:'Ubuntu',
     cursor: 'pointer',
     fontSize: '14px',
   },

@@ -72,6 +72,7 @@ const styles = {
     right: '20px',
     background: '#4caf50',
     color: 'white',
+    fontFamily:'Ubuntu',
     border: 'none',
     padding: '8px 16px',
     borderRadius: '4px',
