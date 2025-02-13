@@ -10,7 +10,9 @@ package backend;
 
 import java.util.List;
 import java.util.ArrayList;
-import io.vertx.ext.sql.ResultSet;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.Tuple;
 
 // import io.vertx.sqlclient.RowSet;
 // import io.vertx.sqlclient.Row;
@@ -37,12 +39,12 @@ public class App extends AbstractVerticle{
 
         // ========  connection with database ======== //
         JsonObject config = new JsonObject()
-        .put("url", "jdbc:mysql://localhost:3306/crud_db")  // Database URL
+        .put("url", "jdbc:mysql://localhost:3306/crud_db")            // Database password
+        .put("max_pool_size", 30)                                 // Database URL
         .put("driver_class", "com.mysql.cj.jdbc.Driver")          // MySQL driver
         .put("user", "shawon")                                      // Database username
-        .put("password", "1234")                                    // Database password
-        .put("max_pool_size", 30);                                 // Max pool size (optional)
-
+        .put("password", "1234");                                  // Max pool size (optional)
+   
         // Create JDBC client
         client = JDBCClient.createShared(vertx, config);
 
@@ -78,349 +80,120 @@ public class App extends AbstractVerticle{
                 }
             });     
     }
+
+    public Future<JsonArray> fetchDataSequentially() {
+        Promise<JsonArray> mainPromise = Promise.promise();
+        JsonArray resultArray = new JsonArray();
     
-    private void getState(RoutingContext context){
-        
-        String query  = "select * from state;";
-
-        client.query(query,resp->{
-            if(resp.succeeded()){
-                JsonArray jsonArray = new JsonArray(resp.result().getRows());
-
-                for(int i=0;i<jsonArray.size();i++){
-                    JsonObject viewport = new JsonObject(jsonArray.getJsonObject(i).getString("viewport"));
-                    jsonArray.getJsonObject(i).put("viewport",viewport);
-
-                    JsonObject metadata = new JsonObject(jsonArray.getJsonObject(i).getString("metadata"));
-                    jsonArray.getJsonObject(i).put("metadata",metadata);
-
-                    JsonArray nodes = new JsonArray(jsonArray.getJsonObject(i).getString("nodes"));
-                    jsonArray.getJsonObject(i).put("nodes",nodes);
-                    // System.out.println(nodes)
-
-                    JsonArray edges = new JsonArray(jsonArray.getJsonObject(i).getString("edges"));
-                    jsonArray.getJsonObject(i).put("edges",edges);
-
+        // Step 1: Fetch States
+        String stateQuery = "SELECT * FROM state";
+        client.query(stateQuery, stateRes -> {
+            if (stateRes.succeeded()) {
+                JsonArray stateRows = new JsonArray(stateRes.result().getRows().toString());
+    
+                // Process each state one by one
+                List<Future> stateFutures = new ArrayList<>();
+    
+                for (int i = 0; i < stateRows.size(); i++) {
+                    JsonObject stateRow = stateRows.getJsonObject(i);
+                    JsonObject stateJson = new JsonObject()
+                            .put("id", stateRow.getString("id"))
+                            .put("viewport", new JsonObject(stateRow.getString("viewport")))
+                            .put("metadata", new JsonObject(stateRow.getString("metadata")));
+    
+                    // Step 2: Fetch Nodes for the current state
+                    Promise<Void> statePromise = Promise.promise();
+                    String nodesQuery = "SELECT * FROM nodes WHERE parent_id = '" + stateRow.getString("id") + "';";
+                    client.query(nodesQuery, nodesRes -> {
+                        if (nodesRes.succeeded()) {
+                            JsonArray nodesArray = new JsonArray();
+                            JsonArray nodeRows = new JsonArray(nodesRes.result().getRows().toString());
+    
+                            for (int j = 0; j < nodeRows.size(); j++) {
+                                JsonObject nodeRow = nodeRows.getJsonObject(j);
+                                JsonObject nodeJson = new JsonObject()
+                                        .put("id", nodeRow.getString("id"))
+                                        .put("data", new JsonObject(nodeRow.getString("data")))
+                                        .put("type", nodeRow.getString("type"))
+                                        .put("position", new JsonObject(nodeRow.getString("position")));
+                                nodesArray.add(nodeJson);
+                            }
+    
+                            stateJson.put("nodes", nodesArray);
+    
+                            // Step 3: Fetch Edges for the current state
+                            String edgesQuery = "SELECT * FROM edges WHERE parent_id = '" + stateRow.getString("id") + "';";
+                            client.query(edgesQuery, edgesRes -> {
+                                if (edgesRes.succeeded()) {
+                                    JsonArray edgesArray = new JsonArray();
+                                    JsonArray edgeRows = new JsonArray(edgesRes.result().getRows().toString());
+    
+                                    for (int k = 0; k < edgeRows.size(); k++) {
+                                        JsonObject edgeRow = edgeRows.getJsonObject(k);
+                                        JsonObject edgeJson = new JsonObject()
+                                                .put("id", edgeRow.getString("id"))
+                                                .put("source", edgeRow.getString("source"))
+                                                .put("target", edgeRow.getString("target"))
+                                                .put("sourceHandle", edgeRow.getString("source_handle"))
+                                                .put("targetHandle", edgeRow.getString("target_handle"));
+                                        edgesArray.add(edgeJson);
+                                    }
+    
+                                    stateJson.put("edges", edgesArray);
+    
+                                    // Add the state object to the result array
+                                    resultArray.add(stateJson);
+    
+                                    // Complete the promise for this state
+                                    statePromise.complete();
+                                } else {
+                                    statePromise.fail(edgesRes.cause());
+                                }
+                            });
+    
+                        } else {
+                            statePromise.fail(nodesRes.cause());
+                        }
+                    });
+    
+                    stateFutures.add(statePromise.future());
                 }
+    
+                // Wait for all state futures to complete
+                CompositeFuture.all(stateFutures).onComplete(ar -> {
+                    if (ar.succeeded()) {
+                        mainPromise.complete(resultArray);
+                    } else {
+                        mainPromise.fail(ar.cause());
+                    }
+                });
+    
+            } else {
+                mainPromise.fail(stateRes.cause());
+            }
+        });
+    
+        return mainPromise.future();
+    }
+    
 
+    private void getState(RoutingContext context){
+        fetchDataSequentially().onComplete(ar -> {
+            if (ar.succeeded()) {
+                // Send the result as JSON response
                 context.response()
-                .setStatusCode(200)
-                .setStatusMessage("ok")
-                .end(jsonArray.toString());
-            }else{
+                        .setStatusCode(200)
+                        .setStatusMessage("ok")
+                        .end(ar.result().toString());
+            } else {
+                // Handle failure
                 context.response()
-                .setStatusCode(500)
-                .end("Database error");
+                        .setStatusCode(500)
+                        .putHeader("Content-Type", "application/json")
+                        .end(new JsonObject().put("error", ar.cause().getMessage()).encode());
             }
         });
     }
-    
-    // private void getState(RoutingContext context) {
-    //     JsonArray finalResponse = new JsonArray();
-    //     String query = "SELECT * FROM state;";
-    
-    //     client.query(query, stateRes -> {
-    //         if (stateRes.succeeded()) {
-    //             ResultSet stateRows = stateRes.result();
-    //             JsonArray stateResponse = new JsonArray(stateRows.getRows());
-    
-    //             if (stateResponse.isEmpty()) {
-    //                 context.response().end(finalResponse.toString());
-    //                 return;
-    //             }
-    
-    //             // Track Futures for each query
-    //             List<Future> futures = new ArrayList<>();
-    
-    //             for (int i = 0; i < stateResponse.size(); i++) {
-    //                 JsonObject state = stateResponse.getJsonObject(i);
-    //                 JsonObject jsonObject = new JsonObject();
-    
-    //                 jsonObject.put("id", state.getString("id"));
-    //                 jsonObject.put("viewport", new JsonObject(state.getString("viewport")));
-    //                 jsonObject.put("metadata", new JsonObject(state.getString("metadata")));
-    
-    //                 String nodeQuery = "SELECT id, type, position, data, width, height, selected, dragging FROM nodes WHERE parent_id = '" + state.getString("id") + "';";
-    //                 String edgeQuery = "SELECT id, source, target, type, selected FROM edges WHERE parent_id = '" + state.getString("id") + "';";
-    
-    //                 // Use Promises to handle async calls
-    //                 Promise<JsonArray> nodePromise = Promise.promise();
-    //                 Promise<JsonArray> edgePromise = Promise.promise();
-    
-    //                 // Fetch nodes
-    //                 client.query(nodeQuery, nodeResponse -> {
-    //                     if (nodeResponse.succeeded()) {
-    //                         nodePromise.complete(new JsonArray(nodeResponse.result().getRows()));
-    //                     } else {
-    //                         nodePromise.fail("Database error in nodes table");
-    //                     }
-    //                 });
-    
-    //                 // Fetch edges
-    //                 client.query(edgeQuery, edgeResponse -> {
-    //                     if (edgeResponse.succeeded()) {
-    //                         edgePromise.complete(new JsonArray(edgeResponse.result().getRows()));
-    //                     } else {
-    //                         edgePromise.fail("Database error in edges table");
-    //                     }
-    //                 });
-    
-    //                 // Add to future list
-    //                 futures.add(nodePromise.future().compose(nodes -> {
-
-    //                     for(int j=0;j<nodes.size();j++){
-    //                         JsonObject nodeObject = new JsonObject();
-
-
-    //                         nodes.getJsonObject(j).put("position",new JsonObject(nodes.getJsonObject(j).getString("position")));
-
-    //                         nodes.getJsonObject(j).put("data",new JsonObject(nodes.getJsonObject(j).getString("data")));
-    //                     }
-
-    //                     jsonObject.put("nodes", nodes);
-    //                     return edgePromise.future();
-    //                 }).compose(edges -> {
-    //                     jsonObject.put("edges", edges);
-    //                     finalResponse.add(jsonObject);
-    //                     return Future.succeededFuture();
-    //                 }));
-    //             }
-    
-    //             // Wait for all queries to complete
-    //             CompositeFuture.all(futures).onComplete(ar -> {
-    //                 if (ar.succeeded()) {
-    //                     context.response()
-    //                             .putHeader("Content-Type", "application/json")
-    //                             .end(finalResponse.encode());
-    //                 } else {
-    //                     context.response().setStatusCode(500).end("Error fetching nodes and edges");
-    //                 }
-    //             });
-    
-    //         } else {
-    //             context.response().setStatusCode(500).end("Database error");
-    //         }
-    //     });
-    // }
-
-    private void saveState(RoutingContext context){
-        
-        context.request().bodyHandler(resp->{
-            String cntRcvd = resp.toString();
-
-            System.out.println(cntRcvd);
-            JsonObject jsonObject = new JsonObject(cntRcvd);
-
-            String query = "insert into state (id,viewport,metadata,nodes,edges) values ("
-                  + "'" + jsonObject.getString("id") + "',"
-                  + "'" + jsonObject.getJsonObject("viewport") + "',"
-                  + "'" + jsonObject.getJsonObject("metadata") + "',"
-                  + "'" + jsonObject.getJsonArray("nodes") + "',"
-                  + "'" + jsonObject.getJsonArray("edges") + "');";
-
-            
-            client.query(query,res->{
-                if(res.succeeded()){
-                    context.response()
-                    .setStatusCode(200)
-                    .setStatusMessage("ok")
-                    .end("State save success");
-                }else{
-                    context.response()
-                    .setStatusCode(500)
-                    .end("Databse error");
-                }
-            });
-        });
-    }
-    
-    
-
-    // private void saveState(RoutingContext context) {
-    //     context.request().bodyHandler(res -> {
-    //         String cntRcvd = res.toString();
-    //         JsonObject jsonObject = new JsonObject(cntRcvd);
-
-    //         // System.out.println(jsonObject);
-            
-
-    
-    //         JsonArray nodesArray = jsonObject.getJsonArray("nodes");
-    //         JsonArray edgesArray = jsonObject.getJsonArray("edges");
-    
-    //         String stateQuery = "INSERT INTO state (id, viewport, metadata) VALUES ('" +
-    //                 jsonObject.getString("id") + "', '" +
-    //                 jsonObject.getJsonObject("viewport").toString() + "', '" +
-    //                 jsonObject.getJsonObject("metadata").toString() + "');";
-    
-    //         // Insert state and get a Future
-    //         Future<Void> stateFuture = insertState(stateQuery);
-    
-    //         // Once state insertion is done, insert nodes and edges
-    //         stateFuture.onSuccess(v -> {
-    //             List<Future> futures = new ArrayList<>();
-    
-    //             // Insert all nodes
-    //             for (int i = 0; i < nodesArray.size(); i++) {
-    //                 JsonObject node = nodesArray.getJsonObject(i);
-    //                 String nodeQuery = "INSERT INTO nodes (id, type, position, data, width, height, selected, dragging, parent_id) VALUES ('" +
-    //                         node.getString("id") + "', '" +
-    //                         node.getString("type") + "', '" +
-    //                         node.getJsonObject("position")+ "', '" +
-    //                         node.getJsonObject("data") + "', " +
-    //                         node.getString("width") + ", " +
-    //                         node.getString("height") + ", " +
-    //                         node.getString("selected") + ", " +
-    //                         node.getString("dragging")+ ", '" +
-    //                         jsonObject.getString("id") + "');";
-
-    //                         System.out.println(nodeQuery);
-    
-    //                 futures.add(insertNodeOrEdge(nodeQuery));
-    //             }
-    
-    //             // Insert all edges
-    //             for (int i = 0; i < edgesArray.size(); i++) {
-    //                 JsonObject edge = edgesArray.getJsonObject(i);
-    //                 String edgeQuery = "INSERT INTO edges (id, source, target, type, selected, parent_id) VALUES ('" +
-    //                         edge.getString("id") + "', '" +
-    //                         edge.getString("source") + "', '" +
-    //                         edge.getString("target") + "', '" +
-    //                         edge.getString("type") + "', " +
-    //                         edge.getString("selected")+ ", '" +
-    //                         jsonObject.getString("id") + "');";
-    
-    //                 futures.add(insertNodeOrEdge(edgeQuery));
-    //             }
-    
-    //             // If there are no nodes or edges, respond immediately
-    //             if (futures.isEmpty()) {
-    //                 context.response().setStatusCode(200).end("Data added to state with no nodes or edges");
-    //                 return;
-    //             }
-    
-    //             // Use CompositeFuture.all() to wait for all insertions
-    //             CompositeFuture.all(futures).onComplete(allRes -> {
-    //                 if (allRes.succeeded()) {
-    //                     context.response().setStatusCode(200).end("Data successfully added");
-    //                 } else {
-    //                     context.response().setStatusCode(500).end("Error inserting nodes/edges");
-    //                 }
-    //             });
-    //         }).onFailure(err -> {
-    //             context.response().setStatusCode(500).end("Database error due to state table: " + err.getMessage());
-    //         });
-    //         // context.response().end("success");
-    //     });
-    // }
-    
-    // private Future<Void> insertState(String query) {
-    //     Promise<Void> promise = Promise.promise();
-        
-    //     client.query(query, res -> {
-    //         if (res.succeeded()) {
-    //             promise.complete();
-    //         } else {
-    //             promise.fail(res.cause());
-    //         }
-    //     });
-    
-    //     return promise.future();
-    // }
-    
-    // private Future<Void> insertNodeOrEdge(String query) {
-    //     Promise<Void> promise = Promise.promise();
-    
-    //     client.query(query, res -> {
-    //         if (res.succeeded()) {
-    //             promise.complete();
-    //         } else {
-    //             promise.fail(res.cause());
-    //         }
-    //     });
-    
-    //     return promise.future();
-    // }
-    
-    
-    
-    
-
-    // private void saveState(RoutingContext context){
-        
-    //     context.request().bodyHandler(res->{
-    //         String cntRcvd = res.toString();
-
-    //         JsonObject jsonObject = new JsonObject(cntRcvd);
-
-    //         JsonArray nodesArray = jsonObject.getJsonArray("nodes");
-    //         JsonArray edgesArray = jsonObject.getJsonArray("edges");
-
-    //         String stateQuery = "insert into state (id,viewport,metadata) values("
-    //                + "'" + jsonObject.getString("id") + "'" + ","
-    //                + "'" + jsonObject.getJsonObject("viewport") + "'" + ","
-    //                + "'" + jsonObject.getJsonObject("metadata") + "'" + ");";
-
-    //             //    System.out.println(jsonObject.getString("id"));
-            
-    //         client.query(stateQuery,resp->{
-    //             if(resp.succeeded()){
-
-    //                 for(int i=0;i<nodesArray.size();i++){
-    //                     JsonObject node = new JsonObject(nodesArray.getJsonObject(i).toString());
-        
-    //                     String nodeQuery = "insert into nodes (id,type,position,data,width,height,selected,dragging,parent_id) values ("
-    //                              + "'" + node.getString("id") + "'" + ","
-    //                              + "'" + node.getString("type") + "'" + ","
-    //                              + "'" + node.getJsonObject("position") + "'" + ","
-    //                              + "'" + node.getJsonObject("data") + "'" + ","
-    //                              +  node.getString("width") + ","
-    //                              +  node.getString("height") + ","
-    //                              +  node.getString("selected") + ","
-    //                              +  node.getString("dragging") + ","
-    //                              + "'" + jsonObject.getString("id") + "'" + ");";
-                        
-    //                     client.query(nodeQuery,nodeResponse->{
-    //                         if(nodeResponse.succeeded()){
-    //                             // continue;
-    //                         }else{
-    //                             context.response().end("Database error due to nodes table");
-    //                             return;
-    //                         }
-    //                     });    
-    //                 }
-        
-    //                 for(int i=0;i<edgesArray.size();i++){
-    //                     JsonObject edge = new JsonObject(edgesArray.getJsonObject(i).toString());
-        
-    //                     String edgeQuery = "insert into edges (id,source,target,type,selected,parent_id) values ("
-    //                     + "'" + edge.getString("id") +"'"+","
-    //                     + "'" + edge.getString("source") +"'"+","
-    //                     + "'" + edge.getString("target") +"'"+","
-    //                     + "'" + edge.getString("type") +"'"+","
-    //                     + edge.getString("selected") +","
-    //                     + "'" + jsonObject.getString("id") +"'"+");";
-                        
-    //                     client.query(edgeQuery,edgeResponse->{
-    //                         if(edgeResponse.succeeded()){
-    //                         }else{
-    //                             context.response().end("Database error due to edges table");
-    //                             return;
-    //                         }
-    //                     }); 
-    //                 }
-    //                 context.response()
-    //                 .setStatusCode(200)
-    //                 .setStatusMessage("ok")
-    //                 .end("Data added to state nodes and edges");
-    //             }else{
-    //                 context.response().setStatusCode(500).end("Database error due to state table");
-    //             }
-    //         });
-
-    //     });
-    // }
-
     
     private void getTasks(RoutingContext context){
         HttpMethod method = context.request().method();
@@ -445,6 +218,121 @@ public class App extends AbstractVerticle{
             }
         });
     }
+    
+
+    
+        
+
+    private void saveState(RoutingContext context){
+            context.request().bodyHandler(res->{
+            String cntRcvd = res.toString();
+
+            // System.out.println(cntRcvd);
+
+            JsonObject jsonObject = new JsonObject(cntRcvd);
+
+            JsonArray nodesArray = jsonObject.getJsonArray("nodes");
+            JsonArray edgesArray = jsonObject.getJsonArray("edges");
+
+            System.out.println(cntRcvd);
+
+            String stateQuery = "insert into state (id,viewport,metadata) values("
+                   + "'" + jsonObject.getString("id") + "'" + ","
+                   + "'" + jsonObject.getJsonObject("viewport") + "'" + ","
+                   + "'" + jsonObject.getJsonObject("metadata") + "'" + ");";
+
+                //    System.out.println(jsonObject.getString("id"));
+            
+            client.query(stateQuery,resp->{
+                if(resp.succeeded()){
+
+                    for(int i=0;i<nodesArray.size();i++){
+                        JsonObject node = new JsonObject(nodesArray.getJsonObject(i).toString());
+                        JsonObject data = node.getJsonObject("data");
+                        String inputStr = node.getJsonObject("data").getString("input_format");
+                        // System.out.println(inputStr);
+                        node.getJsonObject("data").put("input_format",new JsonObject(inputStr));
+                        
+                        if(data.containsKey("output_format")){
+                            String outputStr = node.getJsonObject("data").getString("output_format");
+                            // System.out.println(node.getJsonObject("data"));
+                            node.getJsonObject("data").put("output_format",new JsonObject(outputStr));
+                        }
+
+
+                        if(data.containsKey("eta")){
+                            String eta = node.getJsonObject("data").getString("eta");
+                            // System.out.println(node.getJsonObject("data"));
+                            node.getJsonObject("data").put("eta",new JsonObject(eta));
+                        }
+
+                        if(data.containsKey("header")){
+                            String headerStr = node.getJsonObject("data").getString("header");
+                            // System.out.println(node.getJsonObject("data"));
+                            node.getJsonObject("data").put("header",new JsonObject(headerStr));
+                        }
+
+
+                        // System.out.println(node.getJsonObject("data"));   
+        
+                        String nodeQuery = "insert into nodes (id,type,position,data,width,height,selected,dragging,parent_id) values ("
+                                 + "'" + node.getString("id") + "'" + ","
+                                 + "'" + node.getString("type") + "'" + ","
+                                 + "'" + node.getJsonObject("position") + "'" + ","
+                                 + "'" + node.getJsonObject("data") + "'" + ","
+                                 +  node.getString("width") + ","
+                                 +  node.getString("height") + ","
+                                 +  node.getString("selected") + ","
+                                 +  node.getString("dragging") + ","
+                                 + "'" + jsonObject.getString("id") + "'" + ");";
+
+                              
+                        
+                        client.query(nodeQuery,nodeResponse->{
+                            if(nodeResponse.succeeded()){
+                                // continue;
+                            }else{
+                                context.response().end("Database error due to nodes table");
+                                return;
+                            }
+                        });    
+                    }
+        
+                    for(int i=0;i<edgesArray.size();i++){
+                        JsonObject edge = new JsonObject(edgesArray.getJsonObject(i).toString());
+                        
+                        
+        
+                        String edgeQuery = "insert into edges (id,source,target,type,selected,parent_id) values ("
+                        + "'" + edge.getString("id") +"'"+","
+                        + "'" + edge.getString("source") +"'"+","
+                        + "'" + edge.getString("target") +"'"+","
+                        + "'" + edge.getString("type") +"'"+","
+                        + edge.getString("selected") +","
+                        + "'" + jsonObject.getString("id") +"'"+");";
+                        
+                        client.query(edgeQuery,edgeResponse->{
+                            if(edgeResponse.succeeded()){
+                            }else{
+                                context.response().end("Database error due to edges table");
+                                return;
+                            }
+                        }); 
+                    }
+                    context.response()
+                    .setStatusCode(200)
+                    .setStatusMessage("ok")
+                    .end("Data added to state nodes and edges");
+                }else{
+                    context.response().setStatusCode(500).end("Database error due to state table");
+                }
+            });
+
+        });
+    }
+
+    
+    
 
     private void postTask(RoutingContext context){
         HttpMethod method = context.request().method();

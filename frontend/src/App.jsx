@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect,useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ReactFlow, { 
   Background,
   Controls,
@@ -16,7 +16,6 @@ import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { ProcessNode } from './components/CustomNodes';
 import { useTemplateManagement } from './hooks/useTemplateManagement';
 
-// Register custom node types
 const nodeTypes = {
   process: ProcessNode,
   task: ProcessNode,
@@ -85,85 +84,108 @@ const styles = {
 };
 
 function App() {
-  // State management
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  // const [templates, setTemplates] = useState([]);
   const [taskTemplates, setTaskTemplates] = useState([]);
   
+  // New state for template management
+  const [isLoadedTemplate, setIsLoadedTemplate] = useState(false);
+  const [hasTemplateChanges, setHasTemplateChanges] = useState(false);
   
   const reactFlowWrapper = useRef(null);
   const reactFlowInstance = useRef(null);
 
-  // useEffect(()=>console.log(nodes),[edges]);
-    const { 
-      templates, 
-      saveTemplate, 
-      loadTemplate, 
-      deleteTemplate 
-    } = useTemplateManagement();
+  const { 
+    templates, 
+    saveTemplate, 
+    loadTemplate, 
+    deleteTemplate 
+  } = useTemplateManagement();
 
   const onInit = (instance) => {
     reactFlowInstance.current = instance;
   };
-  // Handle node connections
+
   const onConnect = useCallback((params) => {
+    setHasTemplateChanges(true);
     setEdges((eds) => addEdge(params, eds));
   }, []);
 
-  // Handle node selection for editing
   const onNodeDoubleClick = useCallback((_, node) => {
     setSelectedNode(node);
     setShowTaskForm(true);
   }, []);
 
-
-  // Handle saving flow templates
   const handleSaveTemplate = () => {
     if (nodes.length === 0) {
       alert('Cannot save empty template');
       return;
     }
     
-    if (!reactFlowInstance.current) return;
+    if (!reactFlowInstance.current || (isLoadedTemplate && !hasTemplateChanges)) {
+      return;
+    }
+  
+    // Create a mapping of old node IDs to new nodes
+    const nodeMapping = {};
+    const updatedNodes = nodes.map(node => {
+      const newNode = {
+        ...node,
+        id: `${node.type}-${Date.now()}-${Math.random()}`,
+        data: {
+          ...node.data,
+          state_id: `state-${Date.now()}-${Math.random()}`
+        }
+      };
+      nodeMapping[node.id] = newNode;
+      return newNode;
+    });
+  
+    // Update edges using the node mapping
+    const updatedEdges = edges.map(edge => {
+      return {
+        ...edge,
+        id: `edge-${Date.now()}-${Math.random()}`,
+        source: nodeMapping[edge.source].id,
+        target: nodeMapping[edge.target].id
+      };
+    });
+  
+    setNodes(updatedNodes);
+    setEdges(updatedEdges);
+    
     saveTemplate(reactFlowInstance.current);
+    setIsLoadedTemplate(false);
+    setHasTemplateChanges(false);
   };
 
   const handleLoadTemplate = (template) => {
     if (!reactFlowInstance.current) return;
     loadTemplate(reactFlowInstance.current, template);
+    console.log(template);
+    setIsLoadedTemplate(true);
+    setHasTemplateChanges(false);
   };
 
-
-
-  // Handle saving task templates
   const handleSaveTaskTemplate = useCallback(async(taskNode) => {
-    // console.log(taskNode);
     const template = {
       ...taskNode,
       id: `${"task"}-${Date.now()}-${Math.random()}`,
-      // timestamp: new Date().toISOString(),
     };
-    // console.log(JSON.stringify(template));
 
-    const response = await fetch("http://localhost:8080/task",{
-      method:"POST",
-      headers:{ "Content-Type": "application/json"},
+    const response = await fetch("http://localhost:8080/task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json"},
       body: JSON.stringify(template)
     });
-    
-    // const fresponse = await response.json();
-  
-    // console.log(response);
 
     setTaskTemplates(prev => [...prev, template]);
   }, []);
 
-  // Handle template deletion
   const handleDeleteTemplate = useCallback((id) => {
     setTemplates(prev => prev.filter(template => template.id !== id));
   }, []);
@@ -172,8 +194,40 @@ function App() {
     setTaskTemplates(prev => prev.filter(template => template.id !== id));
   }, []);
 
+  const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
+    setHasTemplateChanges(true);
+    
+    setNodes(nds =>
+      nds.map(node => (
+        node.id === selectedNode.id
+          ? { 
+              ...node, 
+              data: { 
+                ...node.data, 
+                ...nodeData,
+                state_id: `state-${Date.now()}-${Math.random()}`
+              } 
+            }
+          : node
+      ))
+    );
 
-  // Handle drag and drop
+    if (saveAsTemplate && selectedNode.type === 'task') {
+      const template = {
+        id: Date.now().toString(),
+        type: 'task',
+        nodes: [{
+          type: 'task',
+          data: { ...nodeData },
+        }],
+        timestamp: new Date().toISOString(),
+      };
+      setTaskTemplates(prev => [...prev, template]);
+    }
+
+    setShowTaskForm(false);
+  }, [selectedNode, setNodes, setTaskTemplates]);
+
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -188,13 +242,18 @@ function App() {
     if (templateData) {
       try {
         const data = JSON.parse(templateData);
-        console.log(data);
         
         if (data.type === 'flow' && nodes.length === 0) {
-          // Generate new IDs for nodes and edges to avoid conflicts
+          setIsLoadedTemplate(true);
+          setHasTemplateChanges(false);
+
           const newNodes = data.nodes.map(node => ({
             ...node,
-            id: `${node.type}-${Date.now()}-${Math.random()}`
+            id: `${node.type}-${Date.now()}-${Math.random()}`,
+            data: {
+              ...node.data,
+              state_id: `state-${Date.now()}-${Math.random()}`
+            }
           }));
 
           const newEdges = data.edges.map(edge => {
@@ -216,6 +275,7 @@ function App() {
           setNodes(newNodes);
           setEdges(newEdges);
         } else if (data.type === 'task') {
+          setHasTemplateChanges(true);
           const position = {
             x: event.clientX - event.target.getBoundingClientRect().left,
             y: event.clientY - event.target.getBoundingClientRect().top,
@@ -225,7 +285,11 @@ function App() {
             id: `task-${Date.now()}`,
             position,
             type: 'task',
-            data:{...data.data,label:data.data.label}
+            data: {
+              ...data.data,
+              label: data.data.label,
+              state_id: `state-${Date.now()}-${Math.random()}`
+            }
           };
           
           setNodes((nds) => nds.concat(newNode));
@@ -237,6 +301,7 @@ function App() {
     }
 
     if (type) {
+      setHasTemplateChanges(true);
       if (type === 'process' && nodes.some(node => node.type === 'process')) {
         alert('Only one process node is allowed');
         return;
@@ -258,6 +323,7 @@ function App() {
           input_format: '{}',
           header: '{}',
           email_id: '',
+          state_id: `state-${Date.now()}-${Math.random()}`
         },
       };
 
@@ -265,174 +331,140 @@ function App() {
     }
   }, [nodes, setNodes, setEdges]);
 
-  // Handle node updates
-  const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
-    console.log(nodeData);
-    // console.log(selectedNode);
+  useEffect(() => {
+    const fetchTaskTemplates = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/tasks", {
+          method: "GET",
+        });
+        const resp = await response.json();
 
-    setNodes(nds =>
-      nds.map(node =>(
- 
-        node.id === selectedNode.id
-          ? { ...node, data: { ...node.data, ...nodeData } }
-          : node
-        ))
-    );
-
-    if (saveAsTemplate && selectedNode.type === 'task') {
-      const template = {
-        id: Date.now().toString(),
-        type: 'task',
-        nodes: [{
-          type: 'task',
-          data: { ...nodeData },
-          // We don't include position in template as it will be set on drop
-        }],
-        timestamp: new Date().toISOString(),
-      };
-      setTaskTemplates(prev => [...prev, template]);
-    }
-
-    setShowTaskForm(false);
-  }, [selectedNode, setNodes, setTaskTemplates]);
-
-  const fetchTaskTemplates = async()=>{
-    try {
-      const response = await fetch("http://localhost:8080/tasks",{
-        method:"GET",
-       }
-      );
-      const resp = await response.json();
-      // console.log(resp);
-
-      const tempArray = [];
-
-      resp.forEach((template)=>{
-        const temp = {
+        const tempArray = resp.map(template => ({
           id: template.id,
           type: 'task',
           timestamp: new Date().toISOString(),
           data: { 
-          ...template,
-          label: template.name || 'task' // Ensure we have a label for display
+            ...template,
+            label: template.name || 'task'
+          }
+        }));
+
+        setTaskTemplates(tempArray);
+      } catch (error) {
+        console.log(error);
       }
-        };
-        tempArray.push(temp);
-      });
-      setTaskTemplates(tempArray);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+    };
 
-  useEffect(()=>{
-    
     fetchTaskTemplates();
+  }, []);
 
-    edges.forEach((edge)=>{
-    const srcId = edge.source;
-    const tgtId = edge.target;
+  useEffect(() => {
+    edges.forEach((edge) => {
+      const srcId = edge.source;
+      const tgtId = edge.target;
 
-    const srcNode = nodes.find((node)=>node.id === srcId);
-    const tgtNode = nodes.find((node)=>node.id === tgtId);
+      const srcNode = nodes.find((node) => node.id === srcId);
+      const tgtNode = nodes.find((node) => node.id === tgtId);
 
-   
-    
-    if(srcId.includes("process") === true){
-      // console.log(srcNode.data.header);
-      setNodes((nds)=>nds.map(node => node.id === tgtId ? {...tgtNode,data:{...tgtNode.data,input:srcNode.data.header}}:node));
-    }else{
-      // console.log(srcNode.data.output_format);
-      setNodes((nds)=>nds.map(node=> node.id === tgtId ? {...tgtNode,data:{...tgtNode.data,input:srcNode.data.output_format}}:node));
-    }
-
+      if (srcId.includes("process")) {
+        setNodes((nds) => nds.map(node => 
+          node.id === tgtId ? 
+          {...tgtNode, data: {...tgtNode.data, input: srcNode.data.header}} : 
+          node
+        ));
+      } else {
+        setNodes((nds) => nds.map(node => 
+          node.id === tgtId ? 
+          {...tgtNode, data: {...tgtNode.data, input: srcNode.data.output_format}} : 
+          node
+        ));
+      }
+    });
     console.log(nodes);
-
-  })
-},[edges]);
- 
-
-
-  // console.log(nodes);
+  }, [edges]);
 
   return (
     <div style={styles.container}>
-      {/* Left Sidebar */}
       <ReactFlowProvider>
-      <div ref={reactFlowWrapper} style={styles.container}>
-      <div style={{
-        ...styles.sidebar,
-        ...(leftSidebarOpen ? {} : styles.sidebarCollapsed),
-      }}>
-        <button
-          onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-          style={{ ...styles.toggleButton, ...styles.toggleRight }}
-        >
-          {leftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
-        </button>
-        {leftSidebarOpen && <Sidebar />}
-      </div>
+        <div ref={reactFlowWrapper} style={styles.container}>
+          <div style={{
+            ...styles.sidebar,
+            ...(leftSidebarOpen ? {} : styles.sidebarCollapsed),
+          }}>
+            <button
+              onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+              style={{ ...styles.toggleButton, ...styles.toggleRight }}
+            >
+              {leftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
+            </button>
+            {leftSidebarOpen && <Sidebar />}
+          </div>
 
-      {/* Main Flow Area */}
-      <div style={styles.flowContainer}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onInit={onInit}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeDoubleClick={onNodeDoubleClick}
-          nodeTypes={nodeTypes}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-          fitView
-        >
-          <Background />
-          <Controls />
-          <MiniMap />
-          
-          <button style={styles.saveButton} onClick={handleSaveTemplate}>
-            <Save size={16} />
-            <span>Save Template</span>
-          </button>
-        </ReactFlow>
+          <div style={styles.flowContainer}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onInit={onInit}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeDoubleClick={onNodeDoubleClick}
+              nodeTypes={nodeTypes}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              fitView
+            >
+              <Background />
+              <Controls />
+              <MiniMap />
+              
+              <button 
+                style={{
+                  ...styles.saveButton,
+                  opacity: (!isLoadedTemplate || hasTemplateChanges) ? 1 : 0.5,
+                  cursor: (!isLoadedTemplate || hasTemplateChanges) ? 'pointer' : 'not-allowed'
+                }} 
+                onClick={handleSaveTemplate}
+                disabled={isLoadedTemplate && !hasTemplateChanges}
+              >
+                <Save size={16} />
+                <span>Save Template</span>
+              </button>
+            </ReactFlow>
 
-        {/* Conditional Form Rendering */}
-        {showTaskForm && selectedNode && (
-          selectedNode.type === 'process' ? (
-            <ProcessForm
-              node={selectedNode}
-              onClose={() => setShowTaskForm(false)}
-              onSave={handleNodeUpdate}
-            />
-          ) : (
-            <TaskForm
-              node={selectedNode}
-              onClose={() => setShowTaskForm(false)}
-              onSave={handleNodeUpdate}
-              onSaveTemplate={handleSaveTaskTemplate}
-            />
-          )
-        )}
-      </div>
+            {showTaskForm && selectedNode && (
+              selectedNode.type === 'process' ? (
+                <ProcessForm
+                  node={selectedNode}
+                  onClose={() => setShowTaskForm(false)}
+                  onSave={handleNodeUpdate}
+                />
+              ) : (
+                <TaskForm
+                  node={selectedNode}
+                  onClose={() => setShowTaskForm(false)}
+                  onSave={handleNodeUpdate}
+                  onSaveTemplate={handleSaveTaskTemplate}
+                />
+              )
+            )}
+          </div>
 
-      {/* Right Sidebar */}
-      <div style={{
-        ...styles.sidebar,
-        ...(rightSidebarOpen ? {} : styles.sidebarCollapsed),
-      }}>
-        <button
-          onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
-          style={{ ...styles.toggleButton, ...styles.toggleLeft }}
-        >
-          {rightSidebarOpen ? <ChevronRight /> : <ChevronLeft />}
-        </button>
-        {rightSidebarOpen && (
-          <TemplatesSidebar
+          <div style={{
+            ...styles.sidebar,
+            ...(rightSidebarOpen ? {} : styles.sidebarCollapsed),
+          }}>
+            <button
+              onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+              style={{ ...styles.toggleButton, ...styles.toggleLeft }}
+            >
+              {rightSidebarOpen ? <ChevronRight /> : <ChevronLeft />}
+            </button>
+            {rightSidebarOpen && (
+              <TemplatesSidebar
             templates={templates}
             taskTemplates={taskTemplates}
-            onDeleteTemplate={handleDeleteTemplate}
+            onDeleteTemplate={deleteTemplate}
             onDeleteTaskTemplate={handleDeleteTaskTemplate}
             existingNodes={nodes}
             onLoadTemplate={handleLoadTemplate}
