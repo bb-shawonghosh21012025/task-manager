@@ -35,12 +35,14 @@ export const TemplatesSidebar = ({
   const [isDragging, setIsDragging] = useState(false);
   const [processSearchTerm, setProcessSearchTerm] = useState('');
   const [taskSearchTerm, setTaskSearchTerm] = useState('');
+  const [childTaskSearchTerm, setChildTaskSearchTerm] = useState('');
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [childTasksPosition, setChildTasksPosition] = useState(null);
   
   // References for the search dropdowns
   const processTemplateRef = useRef(null);
   const taskTemplateRef = useRef(null);
+  const childTaskSearchRef = useRef(null);
   
   // Visibility state for the dropdowns
   const [processTemplateListDisplay, setProcessTemplateListDisplay] = useState("hidden");
@@ -117,6 +119,8 @@ export const TemplatesSidebar = ({
     
     // Set this task as active
     setActiveTaskId(taskId);
+    // Reset child task search when opening a different task
+    setChildTaskSearchTerm('');
   };
 
   const handleDragStart = (event, template, type) => {
@@ -146,11 +150,17 @@ export const TemplatesSidebar = ({
   // Close child tasks dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Don't close if clicking the eye button
+      if (event.target.closest('.eye-button')) {
+        return;
+      }
+      
+      // Don't close if clicking inside the dropdown or the search field
       if (activeTaskId && 
-          !event.target.closest('.child-tasks-dropdown') && 
-          !event.target.closest('.eye-button')) {
+          !event.target.closest('.child-tasks-dropdown')) {
         setActiveTaskId(null);
         setChildTasksPosition(null);
+        setChildTaskSearchTerm('');
       }
     };
 
@@ -167,8 +177,18 @@ export const TemplatesSidebar = ({
   });
 
   const filteredTaskTemplates = taskTemplates.filter(task =>
-    task.data.label.toLowerCase().includes(taskSearchTerm.toLowerCase())
+    task.data.label.toLowerCase().includes(taskSearchTerm.toLowerCase()) ||
+    task.data.slug.toLowerCase().includes(taskSearchTerm.toLowerCase())
   );
+
+  const getFilteredChildTasks = (task) => {
+    if (!task || !task.childTasks) return [];
+    
+    return task.childTasks.filter(childTask => {
+      const taskName = childTask.data?.slug || childTask.name || "";
+      return taskName.toLowerCase().includes(childTaskSearchTerm.toLowerCase());
+    });
+  };
 
   return (
     <div style={sharedStyles.container}>
@@ -283,6 +303,7 @@ export const TemplatesSidebar = ({
               value={taskSearchTerm}
               onChange={(e) => setTaskSearchTerm(e.target.value)}
               placeholder="Search Master Template"
+
               style={{
                 width: '100%',
                 padding: '10px',
@@ -365,7 +386,7 @@ export const TemplatesSidebar = ({
         </div>
       </div>
       
-      {/* Child tasks dropdown */}
+      {/* Child tasks dropdown with search */}
       {activeTaskId && childTasksPosition && (
         <div
           className="child-tasks-dropdown"
@@ -384,6 +405,8 @@ export const TemplatesSidebar = ({
         >
           {taskTemplates.map(task => {
             if (task.id === activeTaskId) {
+              const filteredChildTasks = getFilteredChildTasks(task);
+              
               return (
                 <React.Fragment key={`child-${task.id}`}>
                   <div style={{
@@ -396,31 +419,77 @@ export const TemplatesSidebar = ({
                     Child Tasks for {task.data.slug}
                   </div>
                   
-                  {task.childTasks?.map(childTask => (
-                    <div
-                      key={childTask.id}
-                      style={{
-                        padding: '10px',
-                        marginBottom: '5px',
-                        border: '1px solid #eee',
-                        cursor: 'grab',
-                        background: '#f9f9f9',
-                        borderRadius: '3px',
-                        fontSize: '14px'
-                      }}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, childTask, 'childTask')}
-                      onDragEnd={handleDragEnd}
-                    >
-                      {childTask.data?.slug || childTask.name}
+                  {/* Child Task Search */}
+                  <div className="search" style={{ marginBottom: '10px' }}>
+                    <div className="searchInputs" style={{ position: 'relative' }}>
+                      <input
+                        ref={childTaskSearchRef}
+                        type="text"
+                        value={childTaskSearchTerm}
+                        onChange={(e) => setChildTaskSearchTerm(e.target.value)}
+                        placeholder="Search child tasks..."
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <svg
+                        className="search-icon"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 50 50"
+                        width="16px"
+                        height="16px"
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: '#666'
+                        }}
+                      >
+                        <path d="M 21 3 C 11.621094 3 4 10.621094 4 20 C 4 29.378906 11.621094 37 21 37 C 24.710938 37 28.140625 35.804688 30.9375 33.78125 L 44.09375 46.90625 L 46.90625 44.09375 L 33.90625 31.0625 C 36.460938 28.085938 38 24.222656 38 20 C 38 10.621094 30.378906 3 21 3 Z M 21 5 C 29.296875 5 36 11.703125 36 20 C 36 28.296875 29.296875 35 21 35 C 12.703125 35 6 28.296875 6 20 C 6 11.703125 12.703125 5 21 5 Z" />
+                      </svg>
                     </div>
-                  ))}
+                  </div>
                   
-                  {(!task.childTasks || task.childTasks.length === 0) && (
-                    <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>
-                      No child tasks available
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }}
+                  >
+                    {filteredChildTasks.length > 0 ? (
+                      filteredChildTasks.map(childTask => (
+                        <div
+                          key={childTask.id}
+                          style={{
+                            padding: '10px',
+                            marginBottom: '5px',
+                            border: '1px solid #eee',
+                            cursor: 'grab',
+                            background: '#f9f9f9',
+                            borderRadius: '3px',
+                            fontSize: '14px'
+                          }}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, childTask, 'childTask')}
+                          onDragEnd={handleDragEnd}
+                        >
+                          {childTask.data?.slug || childTask.name}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>
+                        {childTaskSearchTerm && task.childTasks?.length > 0 ? 
+                          "No matching child tasks found" : 
+                          "No child tasks available"}
+                      </div>
+                    )}
+                  </div>
                 </React.Fragment>
               );
             }
