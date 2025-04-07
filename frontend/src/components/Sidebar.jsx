@@ -28,10 +28,14 @@ const styles = {
     userSelect: 'none',
   },
   process: {
-    borderColor: '#1a73e8',
+    borderColor: '#500472', 
+    background: '#500472',  
+    color: 'white',
   },
   task: {
-    borderColor: '#4caf50',
+    borderColor: '#500472', 
+    background: '#500472',  
+    color: 'white',
   },
 };
 

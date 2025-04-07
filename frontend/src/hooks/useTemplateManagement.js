@@ -6,6 +6,26 @@ export const useTemplateManagement = () => {
   const fetchData = async () => {
     const response = await fetch("http://localhost:8080/state");
     const data = await response.json();
+
+    
+    data.forEach(item=>{
+      item.nodes.forEach(node=>{
+        node.data.input_format = JSON.stringify(node.data.input_format || {});
+
+        if("header" in node.data){
+          node.data.header = JSON.stringify(node.data.header || {});
+        }
+
+        if("eta" in node.data){
+          node.data.eta = JSON.stringify(node.data.eta || {});
+        }
+
+        if("output_format" in node.data){
+          node.data.output_format = JSON.stringify(node.data.output_format || {});
+        }
+      });
+    });
+
     setTemplates(data);
   };
 
@@ -80,12 +100,16 @@ export const useTemplateManagement = () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(template),
+      
+      
     });
-
-    if (!response.ok) {
+    if (response.ok) {
+      alert('Template saved succesfully');
+    }else{
       throw new Error('Failed to save template');
     }
 
+    
     setTemplates(prev => [...prev, template]);
     return template;
   }, [generateNewIds]);

@@ -73,7 +73,7 @@ const styles = {
     padding: '8px 16px',
     border: 'none',
     borderRadius: '4px',
-    fontFamily:'Ubuntu',
+    fontFamily: 'Arial, Helvetica, sans-serif',
     cursor: 'pointer',
     fontSize: '14px',
   },
@@ -91,8 +91,8 @@ const ProcessForm = ({ node, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: node.data.name || '',
     process_slug: node.data.process_slug || '',
-    input_format: node.data.input_format || '{}',
-    header: node.data.header || '{}',
+    input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null, 2),
+    header: typeof node.data.header === 'string' ? node.data.header : JSON.stringify(node.data.header || {}, null, 2),
     email_id: node.data.email_id || '',
   });
 

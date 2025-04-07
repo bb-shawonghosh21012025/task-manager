@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import ReactFlow, { 
+import ReactFlow, {
   Background,
   Controls,
   MiniMap,
@@ -8,7 +8,7 @@ import ReactFlow, {
   useEdgesState,
   ReactFlowProvider,
 } from 'reactflow';
-import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Eraser } from 'lucide-react';
 import TaskForm from './components/TaskForm';
 import ProcessForm from './components/ProcessForm';
 import { Sidebar } from './components/Sidebar';
@@ -25,7 +25,7 @@ const styles = {
   container: {
     display: 'flex',
     height: '100vh',
-    width: '100vw',
+    width: '99vw',
   },
   sidebar: {
     position: 'relative',
@@ -41,7 +41,7 @@ const styles = {
     position: 'absolute',
     top: '50%',
     transform: 'translateY(-50%)',
-    background: '#1a73e8',
+    background: '#500472',
     color: 'white',
     border: 'none',
     padding: '8px',
@@ -60,6 +60,7 @@ const styles = {
     right: 0,
     transform: 'translate(100%, -50%)',
     borderRadius: '0 4px 4px 0',
+
   },
   flowContainer: {
     flex: 1,
@@ -69,9 +70,25 @@ const styles = {
     position: 'absolute',
     top: '20px',
     right: '20px',
-    background: '#4caf50',
+    background: '#500472',
     color: 'white',
-    fontFamily:'Ubuntu',
+    fontFamily: 'Arial, Helvetica, sans-serif',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    zIndex: 5,
+  },
+  clearButton: {
+    position: 'absolute',
+    top: '20px',
+    right: '170px',
+    background: '#500472',
+    color: 'white',
+    fontFamily: 'Arial, Helvetica, sans-serif',
     border: 'none',
     padding: '8px 16px',
     borderRadius: '4px',
@@ -91,19 +108,19 @@ function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskTemplates, setTaskTemplates] = useState([]);
-  
+
   // New state for template management
   const [isLoadedTemplate, setIsLoadedTemplate] = useState(false);
   const [hasTemplateChanges, setHasTemplateChanges] = useState(false);
-  
+
   const reactFlowWrapper = useRef(null);
   const reactFlowInstance = useRef(null);
 
-  const { 
-    templates, 
-    saveTemplate, 
-    loadTemplate, 
-    deleteTemplate 
+  const {
+    templates,
+    saveTemplate,
+    loadTemplate,
+    deleteTemplate
   } = useTemplateManagement();
 
   const onInit = (instance) => {
@@ -125,11 +142,11 @@ function App() {
       alert('Cannot save empty template');
       return;
     }
-    
+
     if (!reactFlowInstance.current || (isLoadedTemplate && !hasTemplateChanges)) {
       return;
     }
-  
+
     // Create a mapping of old node IDs to new nodes
     const nodeMapping = {};
     const updatedNodes = nodes.map(node => {
@@ -144,7 +161,7 @@ function App() {
       nodeMapping[node.id] = newNode;
       return newNode;
     });
-  
+
     // Update edges using the node mapping
     const updatedEdges = edges.map(edge => {
       return {
@@ -154,10 +171,10 @@ function App() {
         target: nodeMapping[edge.target].id
       };
     });
-  
+
     setNodes(updatedNodes);
     setEdges(updatedEdges);
-    
+
     saveTemplate(reactFlowInstance.current);
     setIsLoadedTemplate(false);
     setHasTemplateChanges(false);
@@ -171,7 +188,7 @@ function App() {
     setHasTemplateChanges(false);
   };
 
-  const handleSaveTaskTemplate = useCallback(async(taskNode) => {
+  const handleSaveTaskTemplate = useCallback(async (taskNode) => {
     const template = {
       ...taskNode,
       id: `${"task"}-${Date.now()}-${Math.random()}`,
@@ -179,12 +196,22 @@ function App() {
 
     const response = await fetch("http://localhost:8080/task", {
       method: "POST",
-      headers: { "Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(template)
     });
 
     setTaskTemplates(prev => [...prev, template]);
   }, []);
+
+  const handleClearCanvas = useCallback(() => {
+    if (nodes.length === 0) return;
+    if (window.confirm('Are you sure you want to clear the canvas? All unsaved changes will be lost.')) {
+      setNodes([]);
+      setEdges([]);
+      setIsLoadedTemplate(false);
+      setHasTemplateChanges(false);
+    }
+  }, [nodes.length]);
 
   const handleDeleteTemplate = useCallback((id) => {
     setTemplates(prev => prev.filter(template => template.id !== id));
@@ -196,18 +223,18 @@ function App() {
 
   const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
     setHasTemplateChanges(true);
-    
+
     setNodes(nds =>
       nds.map(node => (
         node.id === selectedNode.id
-          ? { 
-              ...node, 
-              data: { 
-                ...node.data, 
-                ...nodeData,
-                state_id: `state-${Date.now()}-${Math.random()}`
-              } 
+          ? {
+            ...node,
+            data: {
+              ...node.data,
+              ...nodeData,
+              state_id: `state-${Date.now()}-${Math.random()}`
             }
+          }
           : node
       ))
     );
@@ -242,7 +269,7 @@ function App() {
     if (templateData) {
       try {
         const data = JSON.parse(templateData);
-        
+
         if (data.type === 'flow' && nodes.length === 0) {
           setIsLoadedTemplate(true);
           setHasTemplateChanges(false);
@@ -257,10 +284,10 @@ function App() {
           }));
 
           const newEdges = data.edges.map(edge => {
-            const sourceNode = newNodes.find(n => 
+            const sourceNode = newNodes.find(n =>
               n.id.includes(edge.source.split('-')[0])
             );
-            const targetNode = newNodes.find(n => 
+            const targetNode = newNodes.find(n =>
               n.id.includes(edge.target.split('-')[0])
             );
 
@@ -280,7 +307,7 @@ function App() {
             x: event.clientX - event.target.getBoundingClientRect().left,
             y: event.clientY - event.target.getBoundingClientRect().top,
           };
-          
+
           const newNode = {
             id: `task-${Date.now()}`,
             position,
@@ -291,7 +318,7 @@ function App() {
               state_id: `state-${Date.now()}-${Math.random()}`
             }
           };
-          
+
           setNodes((nds) => nds.concat(newNode));
         }
         return;
@@ -311,12 +338,11 @@ function App() {
         x: event.clientX - event.target.getBoundingClientRect().left,
         y: event.clientY - event.target.getBoundingClientRect().top,
       };
-
       const newNode = {
         id: `${type}-${Date.now()}`,
         type,
         position,
-        data: { 
+        data: {
           label: type.charAt(0).toUpperCase() + type.slice(1),
           name: '',
           process_slug: '',
@@ -343,7 +369,7 @@ function App() {
           id: template.id,
           type: 'task',
           timestamp: new Date().toISOString(),
-          data: { 
+          data: {
             ...template,
             label: template.name || 'task'
           }
@@ -357,31 +383,6 @@ function App() {
 
     fetchTaskTemplates();
   }, []);
-
-  useEffect(() => {
-    edges.forEach((edge) => {
-      const srcId = edge.source;
-      const tgtId = edge.target;
-
-      const srcNode = nodes.find((node) => node.id === srcId);
-      const tgtNode = nodes.find((node) => node.id === tgtId);
-
-      if (srcId.includes("process")) {
-        setNodes((nds) => nds.map(node => 
-          node.id === tgtId ? 
-          {...tgtNode, data: {...tgtNode.data, input: srcNode.data.header}} : 
-          node
-        ));
-      } else {
-        setNodes((nds) => nds.map(node => 
-          node.id === tgtId ? 
-          {...tgtNode, data: {...tgtNode.data, input: srcNode.data.output_format}} : 
-          node
-        ));
-      }
-    });
-    console.log(nodes);
-  }, [edges]);
 
   return (
     <div style={styles.container}>
@@ -417,13 +418,26 @@ function App() {
               <Background />
               <Controls />
               <MiniMap />
-              
-              <button 
+
+              <button
+                style={{
+                  ...styles.clearButton,
+                  opacity: nodes.length > 0 ? 1 : 0.5,
+                  cursor: nodes.length > 0 ? 'pointer' : 'not-allowed'
+                }}
+                onClick={handleClearCanvas}
+                disabled={nodes.length === 0}
+              >
+                <Eraser size={16} />
+                <span>Clear Canvas</span>
+              </button>
+
+              <button
                 style={{
                   ...styles.saveButton,
                   opacity: (!isLoadedTemplate || hasTemplateChanges) ? 1 : 0.5,
                   cursor: (!isLoadedTemplate || hasTemplateChanges) ? 'pointer' : 'not-allowed'
-                }} 
+                }}
                 onClick={handleSaveTemplate}
                 disabled={isLoadedTemplate && !hasTemplateChanges}
               >
@@ -462,16 +476,16 @@ function App() {
             </button>
             {rightSidebarOpen && (
               <TemplatesSidebar
-            templates={templates}
-            taskTemplates={taskTemplates}
-            onDeleteTemplate={deleteTemplate}
-            onDeleteTaskTemplate={handleDeleteTaskTemplate}
-            existingNodes={nodes}
-            onLoadTemplate={handleLoadTemplate}
-          />
-        )}
-      </div>
-      </div>
+                templates={templates}
+                taskTemplates={taskTemplates}
+                onDeleteTemplate={deleteTemplate}
+                onDeleteTaskTemplate={handleDeleteTaskTemplate}
+                existingNodes={nodes}
+                onLoadTemplate={handleLoadTemplate}
+              />
+            )}
+          </div>
+        </div>
       </ReactFlowProvider>
     </div>
   );

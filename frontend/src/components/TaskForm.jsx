@@ -70,7 +70,7 @@ const styles = {
   button: {
     padding: '8px 16px',
     border: 'none',
-    fontFamily:'Ubuntu',
+    fontFamily: 'Arial, Helvetica, sans-serif',
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '14px',
@@ -96,8 +96,8 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     slug: node.data.slug || '',
     description: node.data.description || '',
     help_text: node.data.help_text || '',
-    input_format: JSON.stringify(node.data.input_format) ? "" + JSON.stringify(node.data.input_format) + "" : '{}',
-    output_format: JSON.stringify(node.data.output_format) ? "" + JSON.stringify(node.data.output_format) + "" : '{}',
+    input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null, 2),
+    output_format: typeof node.data.output_format === 'string' ? node.data.output_format : JSON.stringify(node.data.output_format || {}, null, 2),
     dependent_task_slug: node.data.dependent_task_slug || '',
     repeats_on: node.data.repeats_on,
     bulk_input: node.data.bulk_input || false,
@@ -109,7 +109,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     task_type: node.data.task_type,
     is_active: node.data.is_active || true,
     is_optional: node.data.is_optional || false,
-    eta: JSON.stringify(node.data.eta) ? "" + JSON.stringify(node.data.eta) + "" : '{}',
+    eta: typeof node.data.eta === 'string' ? node.data.eta : JSON.stringify(node.data.eta || {}, null, 2),
     service_id: node.data.service_id || '',
     email_list: node.data.email_list || '',
     action: node.data.action || '',
@@ -145,11 +145,6 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     const isInputFormatValid = validateJson(formData.input_format, 'input_format');
     const isOutputFormatValid = validateJson(formData.output_format, 'output_format');
     const isEtaValid = validateJson(formData.eta, 'eta');
-
-    formData.input_format =  JSON.parse(formData.input_format);
-    // formData.output_format = "" +JSON.parse(formData.output_format) +"";
-    // formData.eta = "" + JSON.parse(formData.eta) +"";
-    console.log(formData.input_format);
 
     if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
       return;

@@ -6,24 +6,25 @@ const styles = {
     padding: '10px 15px',
     borderRadius: '5px',
     fontSize: '14px',
-    background: 'white',
     border: '2px solid',
     minWidth: '150px',
   },
   process: {
-    borderColor: '#1a73e8',
+    borderColor: '#500472', 
+    background: '#500472', 
+    fontWeight: 'bold',
+    color: 'white', 
   },
   task: {
-    borderColor: '#4caf50',
+    borderColor: '#500472',
+    background: 'white',
+    fontWeight: 'bold',
+    color:'black',
   },
   content: {
     display: 'flex',
     flexDirection: 'column',
     gap: '5px',
-  },
-  label: {
-    fontWeight: 'bold',
-    color: '#333',
   },
   description: {
     fontSize: '12px',
@@ -32,9 +33,12 @@ const styles = {
   handle: {
     width: '8px',
     height: '8px',
-    background: '#1a73e8',
+    background: 'grey',
+    borderRadius: '50%',
+    border: '1px solid white',
   },
 };
+
 
 export const ProcessNode = memo(({ data, type }) => {
   return (
