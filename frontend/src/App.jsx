@@ -9,16 +9,21 @@ import ReactFlow, {
   ReactFlowProvider,
 } from 'reactflow';
 import { ChevronLeft, ChevronRight, Save, Eraser } from 'lucide-react';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import SaveIcon from '@mui/icons-material/Save';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'; // or DeleteSweepIcon
 import TaskForm from './components/TaskForm';
 import ProcessForm from './components/ProcessForm';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, ProcessNode } from './components/NodeSidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
-import { ProcessNode } from './components/CustomNodes';
 import { useTemplateManagement } from './hooks/useTemplateManagement';
+import { ErrorModal } from './hooks/ErrorModal'
 
 const nodeTypes = {
   process: ProcessNode,
   task: ProcessNode,
+  master: ProcessNode,
 };
 
 const styles = {
@@ -108,6 +113,19 @@ function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskTemplates, setTaskTemplates] = useState([]);
+  const [hasSaved, setHasSaved] = useState(false);
+  const [error, setError] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const showError = (message) => {
+    setError(message);
+    setIsOpen(true);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setError(null);
+  };
 
   // New state for template management
   const [isLoadedTemplate, setIsLoadedTemplate] = useState(false);
@@ -138,12 +156,25 @@ function App() {
   }, []);
 
   const handleSaveTemplate = () => {
-    if (nodes.length === 0) {
-      alert('Cannot save empty template');
+    const hasProcessNode = nodes.some(node => node.type === 'process');
+    const hasMasterNode = nodes.some(node => node.type === 'master');
+
+    if (hasMasterNode) {
+      showError("Please remove master node first!");
       return;
     }
 
     if (!reactFlowInstance.current || (isLoadedTemplate && !hasTemplateChanges)) {
+      return;
+    }
+
+    const taskNodes = nodes.filter(node => node.type === 'task');
+    const disconnectedTaskNodes = taskNodes.filter(taskNode => {
+      return !edges.some(edge => edge.source === taskNode.id || edge.target === taskNode.id);
+    });
+
+    if (disconnectedTaskNodes.length > 0) {
+      showError("One or more task nodes are not connected to any other node!");
       return;
     }
 
@@ -172,10 +203,13 @@ function App() {
       };
     });
 
+
     setNodes(updatedNodes);
     setEdges(updatedEdges);
 
-    saveTemplate(reactFlowInstance.current);
+    saveTemplate(reactFlowInstance.current).then(() => {
+      setHasSaved(true);
+    });;
     setIsLoadedTemplate(false);
     setHasTemplateChanges(false);
   };
@@ -188,19 +222,25 @@ function App() {
     setHasTemplateChanges(false);
   };
 
-  const handleSaveTaskTemplate = useCallback(async (taskNode) => {
+  const handleSaveTaskTemplate = useCallback(async (taskNode, isUpdate = false) => {
     const template = {
       ...taskNode,
-      id: `${"task"}-${Date.now()}-${Math.random()}`,
+      id: isUpdate ? taskNode.id : `${"task"}-${Date.now()}-${Math.random()}`,
     };
 
     const response = await fetch("http://localhost:8080/task", {
-      method: "POST",
+      method: isUpdate ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(template)
     });
 
-    setTaskTemplates(prev => [...prev, template]);
+    if (isUpdate) {
+      setTaskTemplates(prev => prev.map(t =>
+        t.id === template.id ? template : t
+      ));
+    } else {
+      setTaskTemplates(prev => [...prev, template]);
+    }
   }, []);
 
   const handleClearCanvas = useCallback(() => {
@@ -213,12 +253,14 @@ function App() {
     }
   }, [nodes.length]);
 
-  const handleDeleteTemplate = useCallback((id) => {
-    setTemplates(prev => prev.filter(template => template.id !== id));
-  }, []);
-
   const handleDeleteTaskTemplate = useCallback((id) => {
-    setTaskTemplates(prev => prev.filter(template => template.id !== id));
+    fetch(`http://localhost:8080/task/${id}`, {
+      method: "DELETE",
+    }).then(() => {
+      setTaskTemplates(prev => prev.filter(template => template.id !== id));
+    }).catch(error => {
+      console.error("Error deleting task template:", error);
+    });
   }, []);
 
   const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
@@ -229,6 +271,7 @@ function App() {
         node.id === selectedNode.id
           ? {
             ...node,
+            type: nodeData.type,
             data: {
               ...node.data,
               ...nodeData,
@@ -301,7 +344,7 @@ function App() {
 
           setNodes(newNodes);
           setEdges(newEdges);
-        } else if (data.type === 'task') {
+        } else if (data.type === 'master') {
           setHasTemplateChanges(true);
           const position = {
             x: event.clientX - event.target.getBoundingClientRect().left,
@@ -309,13 +352,16 @@ function App() {
           };
 
           const newNode = {
-            id: `task-${Date.now()}`,
+            id: `master-${Date.now()}`,
             position,
-            type: 'task',
+            type: 'master',
             data: {
               ...data.data,
               label: data.data.label,
-              state_id: `state-${Date.now()}-${Math.random()}`
+              state_id: `state-${Date.now()}-${Math.random()}`,
+              // Add properties to track that this came from a template
+              fromTemplate: true,
+              templateId: data.id
             }
           };
 
@@ -330,7 +376,7 @@ function App() {
     if (type) {
       setHasTemplateChanges(true);
       if (type === 'process' && nodes.some(node => node.type === 'process')) {
-        alert('Only one process node is allowed');
+        showError('Only one process node is allowed');
         return;
       }
 
@@ -367,12 +413,22 @@ function App() {
 
         const tempArray = resp.map(template => ({
           id: template.id,
-          type: 'task',
+          type: 'master',
           timestamp: new Date().toISOString(),
           data: {
             ...template,
             label: template.name || 'task'
-          }
+          },
+          // For testing, attach the same API response as child tasks
+          childTasks: resp.map(childItem => ({
+            id: `child-${childItem.id}`,
+            type: 'childTask',
+            name: childItem.name,
+            data: {
+              ...childItem,
+              slug: childItem.name
+            }
+          }))
         }));
 
         setTaskTemplates(tempArray);
@@ -383,6 +439,13 @@ function App() {
 
     fetchTaskTemplates();
   }, []);
+
+  // Compute whether there's a process node for the save button
+  const hasProcessNode = nodes.some(node => node.type === 'process');
+  const isSaveEnabled = hasProcessNode && (!isLoadedTemplate || hasTemplateChanges);
+
+
+
 
   return (
     <div style={styles.container}>
@@ -396,7 +459,7 @@ function App() {
               onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
               style={{ ...styles.toggleButton, ...styles.toggleRight }}
             >
-              {leftSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
+              {leftSidebarOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
             </button>
             {leftSidebarOpen && <Sidebar />}
           </div>
@@ -428,22 +491,24 @@ function App() {
                 onClick={handleClearCanvas}
                 disabled={nodes.length === 0}
               >
-                <Eraser size={16} />
+                <DeleteSweepIcon style={{ fontSize: 16 }} />
                 <span>Clear Canvas</span>
               </button>
 
               <button
                 style={{
                   ...styles.saveButton,
-                  opacity: (!isLoadedTemplate || hasTemplateChanges) ? 1 : 0.5,
-                  cursor: (!isLoadedTemplate || hasTemplateChanges) ? 'pointer' : 'not-allowed'
+                  opacity: (hasProcessNode && (!isLoadedTemplate || hasTemplateChanges) && (!hasSaved | hasTemplateChanges)) ? 1 : 0.5,
+                  cursor: (hasProcessNode && (!isLoadedTemplate || hasTemplateChanges) && (!hasSaved | hasTemplateChanges)) ? 'pointer' : 'not-allowed'
                 }}
                 onClick={handleSaveTemplate}
-                disabled={isLoadedTemplate && !hasTemplateChanges}
+                disabled={!hasProcessNode || (isLoadedTemplate && !hasTemplateChanges) || (hasSaved && !hasTemplateChanges)}
               >
-                <Save size={16} />
+                <SaveIcon style={{ fontSize: 16 }} />
                 <span>Save Template</span>
               </button>
+
+
             </ReactFlow>
 
             {showTaskForm && selectedNode && (
@@ -459,11 +524,17 @@ function App() {
                   onClose={() => setShowTaskForm(false)}
                   onSave={handleNodeUpdate}
                   onSaveTemplate={handleSaveTaskTemplate}
+                  onDeleteTemplate={handleDeleteTaskTemplate}
                 />
               )
             )}
           </div>
-
+          <ErrorModal
+            isOpen={isOpen}
+            title="Error"
+            message={error}
+            onClose={handleClose}
+          />
           <div style={{
             ...styles.sidebar,
             ...(rightSidebarOpen ? {} : styles.sidebarCollapsed),
@@ -488,6 +559,7 @@ function App() {
         </div>
       </ReactFlowProvider>
     </div>
+
   );
 }
 

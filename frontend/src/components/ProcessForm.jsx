@@ -78,7 +78,7 @@ const styles = {
     fontSize: '14px',
   },
   primaryButton: {
-    background: '#1a73e8',
+    background: '#500472',
     color: 'white',
   },
   secondaryButton: {

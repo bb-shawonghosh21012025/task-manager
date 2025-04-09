@@ -76,7 +76,7 @@ const styles = {
     fontSize: '14px',
   },
   primaryButton: {
-    background: '#1a73e8',
+    background: '#500472',
     color: 'white',
   },
   secondaryButton: {
@@ -90,7 +90,11 @@ const styles = {
   }
 };
 
-const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
+const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) => {
+  // Check if this node came from a template
+  const isFromTemplate = node.data.fromTemplate;
+  const templateId = node.data.templateId;
+
   const [formData, setFormData] = useState({
     name: node.data.name || '',
     slug: node.data.slug || '',
@@ -104,7 +108,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     input_http_method: node.data.input_http_method,
     api_endpoint: node.data.api_endpoint || '',
     api_timeout_in_ms: node.data.api_timeout_in_ms || 30000,
-    response_type: node.data.response_type ,
+    response_type: node.data.response_type,
     is_json_input_needed: node.data.is_json_input_needed || false,
     task_type: node.data.task_type,
     is_active: node.data.is_active || true,
@@ -131,6 +135,26 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
       return false;
     }
   };
+  const handleUseAsTask = () => {
+    // Validate all JSON fields
+    if (!validateJson(formData.input_format, 'input_format') || 
+        !validateJson(formData.output_format, 'output_format') || 
+        !validateJson(formData.eta, 'eta')) {
+      return;
+    }
+    
+    // Create task data with explicit node type
+    const taskData = {
+      ...formData,
+      type: 'task',
+      fromTemplate: false,
+      originalTemplateId: templateId,
+      label: formData.name || node.data.label
+    };
+    
+    onSave(taskData);
+    onClose();
+  };
 
   const handleJsonChange = (e, field) => {
     const value = e.target.value;
@@ -140,7 +164,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validate all JSON fields
     const isInputFormatValid = validateJson(formData.input_format, 'input_format');
     const isOutputFormatValid = validateJson(formData.output_format, 'output_format');
@@ -149,19 +173,19 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
       return;
     }
-
-    onSave(formData);
+    const data = {...formData, type:'task'}
+    onSave(data);
     onClose();
+    console.log(data); //etsssfaf
   };
-  
+
   const handleSaveTemplate = () => {
-    // console.log(node)
     // Create a template object from the current form data
     const template = {
       id: `${"task"}-${Date.now()}-${Math.random()}`,
       type: 'task',
       timestamp: new Date().toISOString(),
-      data: { 
+      data: {
         ...formData,
         label: formData.name || node.data.label // Ensure we have a label for display
       }
@@ -170,11 +194,47 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
     onClose();
   };
 
+  // Add handler for deleting template
+  const handleDeleteTemplate = () => {
+    if (templateId) {
+      onDeleteTemplate(templateId);
+      onClose();
+    }
+  };
+
+  // Add handler for updating template
+  const handleUpdateTemplate = () => {
+    // Validate all JSON fields first
+    const isInputFormatValid = validateJson(formData.input_format, 'input_format');
+    const isOutputFormatValid = validateJson(formData.output_format, 'output_format');
+    const isEtaValid = validateJson(formData.eta, 'eta');
+
+    if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
+      return;
+    }
+
+    if (templateId) {
+      // Create updated template with current form data
+      const updatedTemplate = {
+        id: templateId,
+        type: 'task',
+        timestamp: new Date().toISOString(),
+        data: {
+          ...formData,
+          label: formData.name || node.data.label
+        }
+      };
+      onSaveTemplate(updatedTemplate, true); // Pass true to indicate this is an update
+      onClose();
+    }
+  };
+
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
         <h2 style={styles.title}>
-          Edit {node.type.charAt(0).toUpperCase() + node.type.slice(1)}
+          {isFromTemplate ? "Edit " : "Edit "}
+          {node.type.charAt(0).toUpperCase() + node.type.slice(1)}
         </h2>
         <form onSubmit={handleSubmit}>
           <div style={styles.form}>
@@ -282,11 +342,6 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
                 onChange={(e) => setFormData({ ...formData, input_http_method: e.target.value })}
                 style={styles.input}
               />
-                {/* <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="DELETE">DELETE</option>
-              </select> */}
             </div>
 
             <div style={styles.formGroup}>
@@ -317,10 +372,6 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
                 onChange={(e) => setFormData({ ...formData, response_type: e.target.value })}
                 style={styles.input}
               />
-                {/* <option value="JSON">JSON</option>
-                <option value="XML">XML</option>
-                <option value="TEXT">TEXT</option>
-              </select> */}
             </div>
 
             <div style={styles.formGroup}>
@@ -341,10 +392,6 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
                 onChange={(e) => setFormData({ ...formData, task_type: e.target.value })}
                 style={styles.input}
               />
-                {/* <option value="API">API</option>
-                <option value="FUNCTION">FUNCTION</option>
-                <option value="SCRIPT">SCRIPT</option>
-              </select> */}
             </div>
 
             <div style={styles.formGroup}>
@@ -409,7 +456,6 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
               />
             </div>
           </div>
-
           <div style={styles.actions}>
             <button
               type="button"
@@ -418,26 +464,77 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate}) => {
             >
               Cancel
             </button>
-            <div>
+            {isFromTemplate && (
               <button
                 type="button"
-                onClick={handleSaveTemplate}
-                style={{ 
-                  ...styles.button, 
-                  ...styles.primaryButton,
-                  marginRight: '10px',
-                  background: '#34a853' 
+                onClick={handleUseAsTask}
+                style={{
+                  ...styles.button,
+                  background: '#8B4C9C',
+                  color: 'white',
+                  marginRight: '10px'
                 }}
               >
-                Save as Template
+                Use as Task
               </button>
+            )}
+
+            {node.type === "task" ? (
+              // Simple Save button for task nodes
               <button
                 type="submit"
                 style={{ ...styles.button, ...styles.primaryButton }}
               >
                 Save
               </button>
-            </div>
+            ) : (
+              // Existing complex logic for other node types
+              <div>
+                {isFromTemplate && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDeleteTemplate}
+                      style={{
+                        ...styles.button,
+                        ...styles.secondaryButton,
+                        background: '#500472',
+                        color: 'white',
+                        marginRight: '10px'
+                      }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUpdateTemplate}
+                      style={{
+                        ...styles.button,
+                        ...styles.primaryButton,
+                        marginRight: '10px',
+                        background: '#500472'
+                      }}
+                    >
+                      Update
+                    </button>
+                  </>
+                )}
+
+                {!isFromTemplate && (
+                  <button
+                    type="button"
+                    onClick={handleSaveTemplate}
+                    style={{
+                      ...styles.button,
+                      ...styles.primaryButton,
+                      background: '#500472'
+                    }}
+                  >
+                    Submit
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </form>
       </div>
