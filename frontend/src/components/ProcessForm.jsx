@@ -1,101 +1,17 @@
 import React, { useState } from 'react';
-
-const styles = {
-  overlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    background: 'white',
-    padding: '24px',
-    borderRadius: '8px',
-    width: '600px',
-    maxWidth: '90vw',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-  },
-  title: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
-    color: '#333',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  label: {
-    fontWeight: '500',
-    color: '#666',
-  },
-  input: {
-    width: '100%',
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-  },
-  jsonEditor: {
-    width: '100%',
-    height: '150px',
-    fontFamily: 'monospace',
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-  },
-  error: {
-    color: 'red',
-    fontSize: '12px',
-    marginTop: '4px',
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '20px',
-  },
-  button: {
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '4px',
-    fontFamily: 'Arial, Helvetica, sans-serif',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  primaryButton: {
-    background: '#500472',
-    color: 'white',
-  },
-  secondaryButton: {
-    background: '#f5f5f5',
-    color: '#333',
-  },
-};
+import { TextField, Button, Box, Typography, Dialog, DialogContent, DialogTitle, DialogActions } from '@mui/material';
 
 const ProcessForm = ({ node, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: node.data.name || '',
     process_slug: node.data.process_slug || '',
+    process_description: node.data.process_description || '',
     input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null, 2),
     header: typeof node.data.header === 'string' ? node.data.header : JSON.stringify(node.data.header || {}, null, 2),
     email_id: node.data.email_id || '',
+    owner_group_ids: node.data.owner_group_ids || '',
   });
-
+  
   const [jsonErrors, setJsonErrors] = useState({
     input_format: false,
     header: false,
@@ -132,89 +48,119 @@ const ProcessForm = ({ node, onClose, onSave }) => {
     onSave({
       ...node.data,
       ...formData,
+      type: 'process'
     });
   };
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        <h2 style={styles.title}>Edit Process</h2>
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              style={styles.input}
-              required
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Process Slug</label>
-            <input
-              type="text"
-              value={formData.process_slug}
-              onChange={(e) => setFormData({ ...formData, process_slug: e.target.value })}
-              style={styles.input}
-              required
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Input Format (JSON)</label>
-            <textarea
-              value={formData.input_format}
-              onChange={(e) => handleJsonChange(e, 'input_format')}
-              style={styles.jsonEditor}
-            />
-            {jsonErrors.input_format && (
-              <div style={styles.error}>{jsonErrors.input_format}</div>
-            )}
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Header (JSON)</label>
-            <textarea
-              value={formData.header}
-              onChange={(e) => handleJsonChange(e, 'header')}
-              style={styles.jsonEditor}
-            />
-            {jsonErrors.header && (
-              <div style={styles.error}>{jsonErrors.header}</div>
-            )}
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Email ID</label>
-            <input
-              type="email"
-              value={formData.email_id}
-              onChange={(e) => setFormData({ ...formData, email_id: e.target.value })}
-              style={styles.input}
-              required
-            />
-          </div>
-
-          <div style={styles.actions}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{ ...styles.button, ...styles.secondaryButton }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={{ ...styles.button, ...styles.primaryButton }}
-            >
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Dialog 
+      open={true} 
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+    >
+      <DialogTitle variant="h5">Edit Process</DialogTitle>
+      <DialogContent className="custom-form">
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <TextField 
+            id="name" 
+            label="Enter Process Name" 
+            value={formData.name}
+            variant="outlined"
+            margin="normal"
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            fullWidth
+            required
+          />
+          <TextField 
+            id="slug" 
+            label="Enter Process Slug" 
+            value={formData.process_slug}
+            variant="outlined"
+            margin="normal"
+            onChange={(e) => setFormData({ ...formData, process_slug: e.target.value })}
+            fullWidth
+            required
+          />
+          <TextField
+            multiline
+            id="description" 
+            label="Enter Process Description"
+            value={formData.process_description}
+            variant="outlined"
+            margin="normal"
+            onChange={(e) => setFormData({ ...formData, process_description: e.target.value })}
+            minRows={5}
+            maxRows={20}
+            fullWidth
+          />
+          <TextField
+            multiline 
+            id="input_format"
+            label="Enter Process Template Input Format"  
+            value={formData.input_format}
+            variant="outlined"
+            margin="normal" 
+            onChange={(e) => handleJsonChange(e, 'input_format')}
+            minRows={20}
+            maxRows={40}
+            fullWidth
+            error={!!jsonErrors.input_format}
+            helperText={jsonErrors.input_format || ''}
+          />
+          <TextField
+            multiline 
+            id="process_headers"
+            label="Enter Process Headers"  
+            value={formData.header}
+            variant="outlined"
+            margin="normal"
+            onChange={(e) => handleJsonChange(e, 'header')}
+            minRows={20}
+            maxRows={40}
+            fullWidth
+            error={!!jsonErrors.header}
+            helperText={jsonErrors.header || ''}
+          />
+          <TextField
+            id="email_list"
+            label="Enter Email List"
+            value={formData.email_id}
+            variant="outlined"
+            margin="normal"
+            onChange={(e) => setFormData({ ...formData, email_id: e.target.value })}
+            fullWidth
+            required
+          />
+          <TextField
+            id="owner_group_id"
+            label="Enter Owner Group Ids"
+            value={formData.owner_group_ids}
+            variant="outlined"
+            margin="normal"
+            onChange={(e) => setFormData({ ...formData, owner_group_ids: e.target.value })}
+            fullWidth
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button 
+          onClick={onClose} 
+          sx={{ color: '#500472', borderColor: '#500472' }}
+          variant="outlined"
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit} 
+          sx={{ bgcolor: '#500472'}}
+          variant="contained" 
+          color="primary"
+        >
+          Save
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

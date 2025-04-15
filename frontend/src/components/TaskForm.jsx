@@ -1,99 +1,43 @@
-import React, { useState } from 'react';
+import React, { axios,useState } from 'react';
+import {
+  TextField,
+  Checkbox,
+  FormControlLabel,
+  Button,
+  Box,
+  Dialog, DialogContent, DialogTitle, DialogActions,
+  Grid
+} from '@mui/material';
 
-const styles = {
-  overlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    background: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    width: '800px',
-    maxWidth: '90vw',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-  },
-  title: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
-    color: '#333',
-  },
-  form: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '15px',
-  },
-  fullWidth: {
-    gridColumn: '1 / -1',
-  },
-  formGroup: {
-    marginBottom: '15px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
-    fontWeight: '500',
-    color: '#666',
-  },
-  input: {
-    width: '100%',
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-  },
-  jsonEditor: {
-    width: '100%',
-    height: '150px',
-    fontFamily: 'monospace',
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '20px',
-  },
-  button: {
-    padding: '8px 16px',
-    border: 'none',
-    fontFamily: 'Arial, Helvetica, sans-serif',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  primaryButton: {
-    background: '#500472',
-    color: 'white',
-  },
-  secondaryButton: {
-    background: '#f5f5f5',
-    color: '#333',
-  },
-  error: {
-    color: 'red',
-    fontSize: '12px',
-    marginTop: '4px',
-  }
-};
+import { ErrorModal } from '../hooks/ErrorModal';
+
+
 
 const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) => {
   // Check if this node came from a template
-  const isFromTemplate = node.data.fromTemplate;
+
+  const isFromTemplate = node.isFromTemplate;
   const templateId = node.data.templateId;
+
+  const [error, setError] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [success, setConfirm] = useState(false);
+
+  const showError = (message) => {
+    setError(message);
+    setIsOpen(true);
+  };
+  const showConfirm = (message) => {
+    setConfirm(message);
+    setIsOpen(true);
+  };
+  const handleClose = () => {
+    setIsOpen(false);
+    setError(null);
+    setConfirm(false);
+  };
+
+  // console.log(node)
 
   const [formData, setFormData] = useState({
     name: node.data.name || '',
@@ -103,14 +47,14 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null, 2),
     output_format: typeof node.data.output_format === 'string' ? node.data.output_format : JSON.stringify(node.data.output_format || {}, null, 2),
     dependent_task_slug: node.data.dependent_task_slug || '',
-    repeats_on: node.data.repeats_on,
-    bulk_input: node.data.bulk_input || false,
-    input_http_method: node.data.input_http_method,
+    repeats_on: node.data.repeats_on || '',
+    bulk_input: node.data.bulk_input || '',
+    input_http_method: node.data.input_http_method || '',
     api_endpoint: node.data.api_endpoint || '',
     api_timeout_in_ms: node.data.api_timeout_in_ms || 30000,
-    response_type: node.data.response_type,
+    response_type: node.data.responseType,
     is_json_input_needed: node.data.is_json_input_needed || false,
-    task_type: node.data.task_type,
+    task_type: node.data.task_type || '',
     is_active: node.data.is_active || true,
     is_optional: node.data.is_optional || false,
     eta: typeof node.data.eta === 'string' ? node.data.eta : JSON.stringify(node.data.eta || {}, null, 2),
@@ -137,21 +81,21 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
   };
   const handleUseAsTask = () => {
     // Validate all JSON fields
-    if (!validateJson(formData.input_format, 'input_format') || 
-        !validateJson(formData.output_format, 'output_format') || 
-        !validateJson(formData.eta, 'eta')) {
+    if (!validateJson(formData.input_format, 'input_format') ||
+      !validateJson(formData.output_format, 'output_format') ||
+      !validateJson(formData.eta, 'eta')) {
       return;
     }
-    
+
     // Create task data with explicit node type
     const taskData = {
       ...formData,
       type: 'task',
-      fromTemplate: false,
+      isFromTemplate: false,
       originalTemplateId: templateId,
       label: formData.name || node.data.label
     };
-    
+
     onSave(taskData);
     onClose();
   };
@@ -173,24 +117,62 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
       return;
     }
-    const data = {...formData, type:'task'}
+    const data = { ...formData, type: 'task' }
     onSave(data);
     onClose();
     console.log(data); //etsssfaf
   };
 
-  const handleSaveTemplate = () => {
-    // Create a template object from the current form data
-    const template = {
-      id: `${"task"}-${Date.now()}-${Math.random()}`,
-      type: 'task',
-      timestamp: new Date().toISOString(),
-      data: {
-        ...formData,
-        label: formData.name || node.data.label // Ensure we have a label for display
-      }
+  const handleSaveTemplate = async () => {
+
+    const isInputFormatValid = validateJson(formData.input_format, 'input_format');
+    const isOutputFormatValid = validateJson(formData.output_format, 'output_format');
+    const isEtaValid = validateJson(formData.eta, 'eta');
+
+    if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
+      return;
+    }
+
+
+
+    const requestBody = {
+      name: formData.name,
+      slug: formData.slug,
+      description: formData.description,
+      help_text: formData.help_text,
+      input_format: typeof formData.input_format === 'string' ? JSON.parse(formData.input_format) : formData.input_format,
+      output_format: typeof formData.output_format === 'string' ? JSON.parse(formData.output_format) : formData.output_format,
+      dependent_task_slug: Array.isArray(formData.dependent_task_slug) ? formData.dependent_task_slug : [formData.dependent_task_slug],
+      host: formData.host || "",
+      bulk_input: typeof formData.bulk_input === 'boolean' ? formData.bulk_input : false,
+      input_http_method: parseInt(formData.input_http_method, 10), // Convert to number
+      api_endpoint: formData.api_endpoint,
+      api_timeout_in_ms: parseInt(formData.api_timeout_in_ms, 10), // Convert to number
+      responseType: parseInt(formData.response_type, 10), // Convert to number
+      is_json_input_needed: formData.is_json_input_needed,
+      task_type: parseInt(formData.task_type, 10), // Convert to number
+      is_active: formData.is_active,
+      is_optional: formData.is_optional,
+      eta: typeof formData.eta === 'string' ? JSON.parse(formData.eta) : formData.eta,
+      service_id: parseInt(formData.service_id, 10), // Convert to number
+      email_list: formData.email_list,
     };
-    onSaveTemplate(template);
+
+    console.log(requestBody);
+
+    try {
+      const response = await axios.post('http://localhost:8011/bb2admin/v2/master-task-templates', requestBody, {
+        headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+      });
+      showConfirm("Template Created Successfully");
+      console.log('Template saved successfully:', response);
+    } catch (error) {
+      console.error('Error saving template:', error);
+      showError(error.response.data.message);
+    }
+
+    // console.log(requestBody);
+
     onClose();
   };
 
@@ -203,7 +185,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
   };
 
   // Add handler for updating template
-  const handleUpdateTemplate = () => {
+  const handleUpdateTemplate = async () => {
     // Validate all JSON fields first
     const isInputFormatValid = validateJson(formData.input_format, 'input_format');
     const isOutputFormatValid = validateJson(formData.output_format, 'output_format');
@@ -213,332 +195,422 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       return;
     }
 
-    if (templateId) {
-      // Create updated template with current form data
-      const updatedTemplate = {
-        id: templateId,
-        type: 'task',
-        timestamp: new Date().toISOString(),
-        data: {
-          ...formData,
-          label: formData.name || node.data.label
-        }
-      };
-      onSaveTemplate(updatedTemplate, true); // Pass true to indicate this is an update
-      onClose();
+    const requestBody = {
+      name: formData.name,
+      // slug: formData.slug,
+      description: formData.description,
+      help_text: formData.help_text,
+      input_format: typeof formData.input_format === 'string' ? JSON.parse(formData.input_format) : formData.input_format,
+      output_format: typeof formData.output_format === 'string' ? JSON.parse(formData.output_format) : formData.output_format,
+      // dependent_task_slug: Array.isArray(formData.dependent_task_slug) ? formData.dependent_task_slug : [formData.dependent_task_slug],
+      host: formData.host || "",
+      // bulk_input: typeof formData.bulk_input === 'boolean' ? formData.bulk_input : false,
+      input_http_method: parseInt(formData.input_http_method, 10), // Convert to number
+      api_endpoint: formData.api_endpoint,
+      api_timeout_in_ms: parseInt(formData.api_timeout_in_ms, 10), // Convert to number
+      responseType: parseInt(formData.response_type, 10), // Convert to number
+      is_json_input_needed: formData.is_json_input_needed,
+      task_type: parseInt(formData.task_type, 10), // Convert to number
+      is_active: formData.is_active,
+      is_optional: formData.is_optional,
+      eta: typeof formData.eta === 'string' ? JSON.parse(formData.eta) : formData.eta,
+      service_id: parseInt(formData.service_id, 10), // Convert to number
+      email_list: formData.email_list,
+    };
+
+    console.log(node.data.id);
+
+    try {
+      const response = await axios.put(`http://localhost:8011/bb2admin/v2/master-task-templates/${node.data.id}`, requestBody, {
+        headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+      });
+      showConfirm("Template Updated Successfully");
+      console.log('Template saved successfully:', response);
+    } catch (error) {
+      console.error('Error saving template:', error);
+      showError(error.response.data.message);
     }
-  };
 
+    onClose();
+  }
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        <h2 style={styles.title}>
-          {isFromTemplate ? "Edit " : "Edit "}
-          {node.type.charAt(0).toUpperCase() + node.type.slice(1)}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div style={styles.form}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Name</label>
-              <input
-                type="text"
+    <Dialog
+      open={true}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+    >
+      <DialogTitle variant="h5">
+        {isFromTemplate ? "Edit " : "Edit "}
+        {node.type.charAt(0).toUpperCase() + node.type.slice(1)}
+      </DialogTitle>
+
+      <DialogContent className="custom-form">
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="name"
+                label="Enter Task Name"
                 value={formData.name}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                required
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                style={styles.input}
-                required
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Slug</label>
-              <input
-                type="text"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="slug"
+                label="Enter Task Slug"
                 value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                style={styles.input}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 required
+                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Description</label>
-              <textarea
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="description"
+                label="Enter Task Description"
                 value={formData.description}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                multiline
+                rows={3}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                style={styles.input}
-                rows="3"
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Help Text</label>
-              <textarea
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="help_text"
+                label="Enter help text"
                 value={formData.help_text}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                multiline
+                rows={3}
                 onChange={(e) => setFormData({ ...formData, help_text: e.target.value })}
-                style={styles.input}
-                rows="3"
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Input Format (JSON)</label>
-              <textarea
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="input_format"
+                label="Enter task input format"
                 value={formData.input_format}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                multiline
+                rows={5}
+                error={!!jsonErrors.input_format}
+                helperText={jsonErrors.input_format || ""}
                 onChange={(e) => handleJsonChange(e, 'input_format')}
-                style={styles.jsonEditor}
               />
-              {jsonErrors.input_format && (
-                <div style={styles.error}>{jsonErrors.input_format}</div>
-              )}
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Output Format (JSON)</label>
-              <textarea
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="output_format"
+                label="Enter task output format"
                 value={formData.output_format}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                multiline
+                rows={5}
+                error={!!jsonErrors.output_format}
+                helperText={jsonErrors.output_format || ""}
                 onChange={(e) => handleJsonChange(e, 'output_format')}
-                style={styles.jsonEditor}
               />
-              {jsonErrors.output_format && (
-                <div style={styles.error}>{jsonErrors.output_format}</div>
-              )}
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Dependent Task Slug</label>
-              <input
-                type="text"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="dependent_task_slug"
+                label="Enter dependent task slug"
                 value={formData.dependent_task_slug}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, dependent_task_slug: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Repeats On</label>
-              <input
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="host"
+                label="Enter host"
+                value={formData.host}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="repeats_on"
+                label="Repeats On"
                 type="number"
                 value={formData.repeats_on}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, repeats_on: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <input
-                  type="checkbox"
-                  checked={formData.bulk_input}
-                  onChange={(e) => setFormData({ ...formData, bulk_input: e.target.checked })}
-                /> Bulk Input
-              </label>
-            </div>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="bulk_input"
+                label="Bulk Input"
+                value={formData.bulk_input}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                onChange={(e) => setFormData({ ...formData, bulk_input: e.target.value })}
+              />
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>HTTP Method</label>
-              <input
-                type="number"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="input_http_method"
+                label="Enter input http method"
                 value={formData.input_http_method}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, input_http_method: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>API Endpoint</label>
-              <input
-                type="text"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="api_endpoint"
+                label="Enter api endpoint"
                 value={formData.api_endpoint}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, api_endpoint: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>API Timeout (ms)</label>
-              <input
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="api_timeout_in_ms"
+                label="Enter api timeout in ms"
                 type="number"
                 value={formData.api_timeout_in_ms}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, api_timeout_in_ms: parseInt(e.target.value) })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Response Type</label>
-              <input
-                type='number'
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="response_type"
+                label="Enter response type"
                 value={formData.response_type}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, response_type: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <input
-                  type="checkbox"
-                  checked={formData.is_json_input_needed}
-                  onChange={(e) => setFormData({ ...formData, is_json_input_needed: e.target.checked })}
-                /> JSON Input Needed
-              </label>
-            </div>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.is_json_input_needed}
+                    onChange={(e) => setFormData({ ...formData, is_json_input_needed: e.target.checked })}
+                  />
+                }
+                label="Is JSON input needed"
+                sx={{ mt: 2 }}
+              />
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Task Type</label>
-              <input
-                type='number'
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="task_type"
+                label="Enter task type"
                 value={formData.task_type}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, task_type: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                /> Active
-              </label>
-            </div>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="is_active"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  />
+                }
+                label="Is active"
+                sx={{ mt: 2 }}
+              />
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <input
-                  type="checkbox"
-                  checked={formData.is_optional}
-                  onChange={(e) => setFormData({ ...formData, is_optional: e.target.checked })}
-                /> Optional
-              </label>
-            </div>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="is_optional"
+                    checked={formData.is_optional}
+                    onChange={(e) => setFormData({ ...formData, is_optional: e.target.checked })}
+                  />
+                }
+                label="Is optional"
+                sx={{ mt: 2 }}
+              />
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>ETA (JSON)</label>
-              <textarea
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="eta"
+                label="Enter ETA (JSON)"
                 value={formData.eta}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                multiline
+                rows={5}
+                error={!!jsonErrors.eta}
+                helperText={jsonErrors.eta || ""}
                 onChange={(e) => handleJsonChange(e, 'eta')}
-                style={styles.jsonEditor}
               />
-              {jsonErrors.eta && (
-                <div style={styles.error}>{jsonErrors.eta}</div>
-              )}
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Service ID</label>
-              <input
-                type="text"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="service_id"
+                label="Enter service ID"
                 value={formData.service_id}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email List</label>
-              <input
-                type="text"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="email_list"
+                label="Enter email list"
                 value={formData.email_list}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, email_list: e.target.value })}
-                style={styles.input}
               />
-            </div>
+            </Grid>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Action</label>
-              <input
-                type="text"
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="action"
+                label="Enter action"
                 value={formData.action}
+                variant="outlined"
+                fullWidth
+                margin="normal"
                 onChange={(e) => setFormData({ ...formData, action: e.target.value })}
-                style={styles.input}
               />
-            </div>
-          </div>
-          <div style={styles.actions}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{ ...styles.button, ...styles.secondaryButton }}
-            >
-              Cancel
-            </button>
+            </Grid>
+          </Grid>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2 }}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          sx={{ color: '#500472', borderColor: '#500472' }}
+        >
+          Cancel
+        </Button>
+
+        {isFromTemplate && (
+          <Button
+            variant="contained"
+            onClick={handleUseAsTask}
+            sx={{ bgcolor: '#500472' }}
+          >
+            Use as Task
+          </Button>
+        )}
+
+        {node.type === "task" ? (
+          <Button
+            type="submit"
+            variant="contained"
+            onClick={handleSubmit}
+            sx={{ bgcolor: '#500472' }}
+          >
+            Save
+          </Button>
+        ) : (
+          <>
             {isFromTemplate && (
-              <button
-                type="button"
-                onClick={handleUseAsTask}
-                style={{
-                  ...styles.button,
-                  background: '#8B4C9C',
-                  color: 'white',
-                  marginRight: '10px'
-                }}
+              <>
+                <Button
+                  variant="contained"
+                  onClick={handleDeleteTemplate}
+                  sx={{ bgcolor: '#500472' }}
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleUpdateTemplate}
+                  sx={{ bgcolor: '#500472' }}
+                >
+                  Update
+                </Button>
+              </>
+            )}
+            <ErrorModal
+              isOpen={isOpen}
+              title="Error"
+              message={error}
+              onClose={handleClose}
+            />
+            {!isFromTemplate && (
+              <Button
+                variant="contained"
+                onClick={handleSaveTemplate}
+                sx={{ bgcolor: '#500472' }}
               >
-                Use as Task
-              </button>
+                Submit
+              </Button>
+
+
             )}
 
-            {node.type === "task" ? (
-              // Simple Save button for task nodes
-              <button
-                type="submit"
-                style={{ ...styles.button, ...styles.primaryButton }}
-              >
-                Save
-              </button>
-            ) : (
-              // Existing complex logic for other node types
-              <div>
-                {isFromTemplate && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleDeleteTemplate}
-                      style={{
-                        ...styles.button,
-                        ...styles.secondaryButton,
-                        background: '#500472',
-                        color: 'white',
-                        marginRight: '10px'
-                      }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleUpdateTemplate}
-                      style={{
-                        ...styles.button,
-                        ...styles.primaryButton,
-                        marginRight: '10px',
-                        background: '#500472'
-                      }}
-                    >
-                      Update
-                    </button>
-                  </>
-                )}
+          </>
 
-                {!isFromTemplate && (
-                  <button
-                    type="button"
-                    onClick={handleSaveTemplate}
-                    style={{
-                      ...styles.button,
-                      ...styles.primaryButton,
-                      background: '#500472'
-                    }}
-                  >
-                    Submit
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </DialogActions>
+    </Dialog>
   );
 };
 
