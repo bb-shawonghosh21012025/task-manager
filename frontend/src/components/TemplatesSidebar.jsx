@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Trash2, Eye, EyeClosed } from 'lucide-react';
+import axios from 'axios';
 
 const sharedStyles = {
   container: {
@@ -24,13 +25,16 @@ const sharedStyles = {
 };
 
 export const TemplatesSidebar = ({
-  templates,
+  // templates,
   taskTemplates,
   onDeleteTemplate,
   onDeleteTaskTemplate,
   existingNodes,
   onLoadTemplate
 }) => {
+   const [templates,setTemplates] = useState([]);
+   const [masterTemplates,setMasterTemplates] = useState([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [processSearchTerm, setProcessSearchTerm] = useState('');
@@ -47,7 +51,8 @@ export const TemplatesSidebar = ({
   const [taskTemplateListDisplay, setTaskTemplateListDisplay] = useState("hidden");
 
   useEffect(() => {
-    fetchTaskTemplates();
+    fetchProcessTemplateList();
+    fetchMasterTaskTemplates();
   }, []);
 
   useEffect(() => {
@@ -83,18 +88,34 @@ export const TemplatesSidebar = ({
     };
   }, []);
 
-  const fetchTaskTemplates = async () => {
+  const fetchProcessTemplateList = async () => {
     setIsLoading(true);
     try {
-      // API call goes here
-      // const response = await fetch('your-api-endpoint/task-templates');
-      // const data = await response.json();
-    } catch (error) {
-      console.error('Error fetching task templates:', error);
-    } finally {
+      const response = await axios.get('http://localhost:8011/bb2admin/v2/process-template-list',
+        {
+          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+        }
+      );
+      setTemplates(response.data);
+      console.log(response.data);
+    } catch{
       setIsLoading(false);
     }
   };
+
+  const fetchMasterTaskTemplates = async () => {
+    try {
+      const response = await axios.get('http://localhost:8011/bb2admin/v1/master-task-templates',
+        {
+          headers : { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+        }
+      );
+      // console.log(response);
+      setMasterTemplates(response.data.data);
+    } catch (error) {
+      console.log("error in fetchMasterTaskTemplate",error);
+    }
+  }
   
   const toggleTaskExpansion = (taskId, e) => {
     e.stopPropagation();
@@ -128,12 +149,19 @@ export const TemplatesSidebar = ({
     } else if (type === "flow") {
       let transferData = {
         type,
-        nodes: type === 'flow' ? template.nodes : [template],
-        edges: type === 'flow' ? template.edges : []
+        template
       };
-      event.dataTransfer.setData('application/reactflow-template', JSON.stringify(template));
+      event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
       event.dataTransfer.effectAllowed = 'move';
-      onLoadTemplate(transferData);
+      // onLoadTemplate(transferData);
+    }else if(type === "master"){
+      let transferData = {
+        type,
+        template,
+        isFromTemplate : true
+      };
+      event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
+      event.dataTransfer.effectAllowed = 'move';
     }
     
     setIsDragging(true);
@@ -161,13 +189,11 @@ export const TemplatesSidebar = ({
   }, [activeTaskId]);
 
   const filteredProcessTemplates = templates.filter(template => {
-    const processSlug = template.nodes.find(node =>
-      node.id.includes("process"))?.data.process_slug || "";
-    return processSlug.toLowerCase().includes(processSearchTerm.toLowerCase());
+    return template.slug?.toLowerCase().includes(processSearchTerm.toLowerCase()) || template.name?.toLowerCase().includes(processSearchTerm.toLowerCase());
   });
 
-  const filteredTaskTemplates = taskTemplates.filter(task =>
-    task.data.label.toLowerCase().includes(taskSearchTerm.toLowerCase())
+  const filteredMasterTemplates = masterTemplates.filter(task =>
+    task.slug.toLowerCase().includes(taskSearchTerm.toLowerCase())
   );
 
   return (
@@ -226,8 +252,8 @@ export const TemplatesSidebar = ({
               }}
             >
               {filteredProcessTemplates.map((template) => {
-                const processSlug = template.nodes.find(node => 
-                  node.id.includes("process"))?.data.process_slug || "unknown process";
+                const processSlug = template.slug || template.name ;
+                  // node.id.includes("process"))?.data.process_slug || "unknown process";
                 
                 return (
                   <div
@@ -324,7 +350,7 @@ export const TemplatesSidebar = ({
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
               }}
             >
-              {filteredTaskTemplates.map((task) => (
+              {filteredMasterTemplates.map((task) => (
                 <div
                   key={task.id}
                   className="dataItem"
@@ -338,10 +364,10 @@ export const TemplatesSidebar = ({
                     alignItems: 'center'
                   }}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, task, 'task')}
+                  onDragStart={(e) => handleDragStart(e, task, 'master')}
                   onDragEnd={handleDragEnd}
                 >
-                  <span>{task.data.slug}</span>
+                  <span>{task.slug}</span>
                   <button
                     className="eye-button"
                     style={{

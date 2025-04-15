@@ -132,6 +132,7 @@ const ProcessForm = ({ node, onClose, onSave }) => {
     onSave({
       ...node.data,
       ...formData,
+      type:'process'
     });
   };
 

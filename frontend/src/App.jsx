@@ -8,7 +8,7 @@ import ReactFlow, {
   useEdgesState,
   ReactFlowProvider,
 } from 'reactflow';
-import { ChevronLeft, ChevronRight, Save, Eraser } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Eraser, Egg } from 'lucide-react';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SaveIcon from '@mui/icons-material/Save';
@@ -19,6 +19,7 @@ import { Sidebar, ProcessNode } from './components/NodeSidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { useTemplateManagement } from './hooks/useTemplateManagement';
 import { ErrorModal } from './hooks/ErrorModal'
+import axios from 'axios';
 
 const nodeTypes = {
   process: ProcessNode,
@@ -147,6 +148,7 @@ function App() {
 
   const onConnect = useCallback((params) => {
     setHasTemplateChanges(true);
+    // console.log(params.source);
     setEdges((eds) => addEdge(params, eds));
   }, []);
 
@@ -155,16 +157,13 @@ function App() {
     setShowTaskForm(true);
   }, []);
 
-  const handleSaveTemplate = () => {
-    const hasProcessNode = nodes.some(node => node.type === 'process');
+  const handleSaveTemplate = async () => {
+
+    const processNode = nodes.filter(node => node.type === 'process')[0];
     const hasMasterNode = nodes.some(node => node.type === 'master');
 
     if (hasMasterNode) {
       showError("Please remove master node first!");
-      return;
-    }
-
-    if (!reactFlowInstance.current || (isLoadedTemplate && !hasTemplateChanges)) {
       return;
     }
 
@@ -178,38 +177,105 @@ function App() {
       return;
     }
 
-    // Create a mapping of old node IDs to new nodes
-    const nodeMapping = {};
-    const updatedNodes = nodes.map(node => {
-      const newNode = {
-        ...node,
-        id: `${node.type}-${Date.now()}-${Math.random()}`,
-        data: {
-          ...node.data,
-          state_id: `state-${Date.now()}-${Math.random()}`
-        }
-      };
-      nodeMapping[node.id] = newNode;
-      return newNode;
+    // console.log(processNode);
+
+    const processTemplate = {
+      name: processNode.data.name,
+      slug: processNode.data.process_slug,
+      input_format: JSON.parse(processNode.data.input_format),
+      http_headers: JSON.parse(processNode.data.header),
+      email_list: processNode.data.email_id,
+      description: processNode.data.description || "abcd",
+    };
+
+    // console.log(processTemplate);
+
+    const csvHeaders = ["name", "slug", "description","help_text", "input_format", "output_format", "dependent_task_slug","host","bulk_input","input_http_method","api_endpoint", "api_timeout_in_ms","response_type","is_json_input_needed","task_type","is_active","is_optional","eta","service_id","email_list","delay_in_ms","master_task_template_slug","action"];
+    
+    const csvRows = taskNodes.map((node)=>{
+      const data = node.data;
+      return [
+        data.name,  
+        data.slug,
+        data.description,
+        data.help_text,
+        data.input_format,
+        data.output_format,
+        data.dependent_task_slug,
+        data.host || "",
+        data.bulk_input,
+        data.input_http_method,
+        data.api_endpoint,
+        data.api_timeout_in_ms,
+        data.responseType || "",
+        data.is_json_input_needed,
+        data.task_type || "",
+        data.is_active,
+        data.is_optional,
+        data.eta,
+        data.service_id,
+        data.email_list,
+        BigInt(data.delay_in_ms) || BigInt(100),
+        data.master_task_slug || data.slug,
+        data.action || "",
+      ]
     });
 
-    // Update edges using the node mapping
-    const updatedEdges = edges.map(edge => {
-      return {
-        ...edge,
-        id: `edge-${Date.now()}-${Math.random()}`,
-        source: nodeMapping[edge.source].id,
-        target: nodeMapping[edge.target].id
-      };
-    });
+    console.log(csvRows);
+    
+    const csvContent = [
+      csvHeaders.join(","), // Add headers
+      ...csvRows.map(row => row.map(value => `"${value}"`).join(",")) // Add rows
+    ].join("\n");
 
 
-    setNodes(updatedNodes);
-    setEdges(updatedEdges);
+    // Create a Blob for the CSV file
+    const csvBlob = new Blob([csvContent], { type: "text/csv" });
 
-    saveTemplate(reactFlowInstance.current).then(() => {
-      setHasSaved(true);
-    });;
+    // Generate a URL for the CSV file
+  const csvUrl = URL.createObjectURL(csvBlob);
+  console.log("CSV Download URL:", csvUrl); // Print the URL to the console
+
+  // Optionally, trigger a download
+  const link = document.createElement("a");
+  link.href = csvUrl;
+  link.setAttribute("download", "task_nodes.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+    // Prepare FormData
+    const formData = new FormData();
+    formData.append("process_template", JSON.stringify(processTemplate));
+    formData.append("task_templates", csvBlob, "task_nodes.csv");
+    formData.append("owner_group_id", "518,626,767,967,969");
+
+    // console.log(formData.get("process_template"));
+    // console.log(formData.get("task_templates"));
+
+    try {
+      // Make the API call
+      const response = await axios.post("http://localhost:8011/bb2admin/v2/process-and-task-template/", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          "bb-decoded-uid": localStorage.getItem("bb-decoded-uid"),
+        },
+      });
+  
+      alert("Template saved successfully!");
+      console.log("Response:", response.data);
+    } catch (error) {
+      console.error("Error saving template:", error);
+      alert(error.response?.data?.message || "An error occurred while saving the template.");
+    }
+    
+    
+    // setNodes(updatedNodes);
+    // setEdges(updatedEdges);
+
+    // saveTemplate(reactFlowInstance.current).then(() => {
+    //   setHasSaved(true);
+    // });;
     setIsLoadedTemplate(false);
     setHasTemplateChanges(false);
   };
@@ -265,6 +331,8 @@ function App() {
 
   const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
     setHasTemplateChanges(true);
+  
+    // console.log(nodeData);
 
     setNodes(nds =>
       nds.map(node => (
@@ -272,10 +340,10 @@ function App() {
           ? {
             ...node,
             type: nodeData.type,
+            isFromTemplate: nodeData.isFromTemplate || false,
             data: {
               ...node.data,
-              ...nodeData,
-              state_id: `state-${Date.now()}-${Math.random()}`
+              ...nodeData
             }
           }
           : node
@@ -298,16 +366,32 @@ function App() {
     setShowTaskForm(false);
   }, [selectedNode, setNodes, setTaskTemplates]);
 
+  const fetchProcessTemplate = async (id) =>{
+     try {
+      const response = await axios.get(`http://localhost:8011/bb2admin/v2/process-template/${id}`,
+        {
+          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid")}
+        }
+      );
+      console.log(response);
+      return response.data;
+
+     } catch (error) {
+      console.log("error in fetchProcessTemplate",error);
+     }
+  }
+
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const onDrop = useCallback((event) => {
+  const onDrop = useCallback(async (event) => {
     event.preventDefault();
 
     const type = event.dataTransfer.getData('application/reactflow');
     const templateData = event.dataTransfer.getData('application/reactflow-template');
+    // console.log(templateData);
 
     if (templateData) {
       try {
@@ -316,34 +400,79 @@ function App() {
         if (data.type === 'flow' && nodes.length === 0) {
           setIsLoadedTemplate(true);
           setHasTemplateChanges(false);
+          // console.log(data);
 
-          const newNodes = data.nodes.map(node => ({
-            ...node,
-            id: `${node.type}-${Date.now()}-${Math.random()}`,
-            data: {
-              ...node.data,
-              state_id: `state-${Date.now()}-${Math.random()}`
+
+          const response = await fetchProcessTemplate(data.template.id);
+
+          const nodeData = response.task_templates;
+          const childParentMapping = response.child_parent_mappings;
+
+          // creating NODES
+        
+          const processNode = {
+            id: `process-${data.template.id}`,
+            type: 'process',
+            position: {
+              x: event.clientX - event.target.getBoundingClientRect().left,
+              y: event.clientY - event.target.getBoundingClientRect().top,
+            },
+            data :{
+              ...data.template
             }
+          };
+
+          // Calculate positions for task nodes in a grid layout
+          const gridSpacing = 200; // Spacing between nodes
+          const maxNodesPerRow = 5; // Maximum number of nodes per row
+          const totalTaskNodes = nodeData.length; // Total number of task nodes
+
+          // Calculate the width of a row based on the number of nodes in the row
+          const rowWidth = Math.min(totalTaskNodes, maxNodesPerRow) * gridSpacing;
+
+          // Center the task nodes below the process node
+          const startX = processNode.position.x - rowWidth / 2 + gridSpacing / 2; // Center the row horizontally
+          const startY = processNode.position.y + 300; // Start position for task nodes below the process node
+
+          const taskNodes = nodeData.map((task, index) => ({
+            id: `task-${task.id}`,
+            type: 'task',
+            position: {
+              x: startX + (index % maxNodesPerRow) * gridSpacing, // Arrange in rows of `maxNodesPerRow`
+              y: startY + Math.floor(index / maxNodesPerRow) * gridSpacing, // Move to the next row after `maxNodesPerRow` nodes
+            },
+            data: {
+              ...task,
+            },
           }));
 
-          const newEdges = data.edges.map(edge => {
-            const sourceNode = newNodes.find(n =>
-              n.id.includes(edge.source.split('-')[0])
-            );
-            const targetNode = newNodes.find(n =>
-              n.id.includes(edge.target.split('-')[0])
-            );
 
-            return {
-              ...edge,
-              id: `edge-${Date.now()}-${Math.random()}`,
-              source: sourceNode.id,
-              target: targetNode.id
-            };
+          const newNodes = [processNode, ...taskNodes];
+          setNodes(newNodes);
+
+          
+          // Creating EDGES
+          const newEdges = [];
+          Object.keys(childParentMapping).map((key)=>{
+             childParentMapping[key].map((childId)=>{
+              if(childId === 0){
+                 newEdges.push({
+                  id: `edge-${processNode.id}-${key}`,
+                  source: processNode.id,
+                  target: `task-${key}`,
+                 });
+              }else{
+                newEdges.push({
+                  id:`edge-${childId}-${key}`,
+                  source:`task-${childId}`,
+                  target:`task-${key}`
+                });
+              }
+             });
           });
 
-          setNodes(newNodes);
-          setEdges(newEdges);
+          setEdges((eds) => [...eds, ...newEdges]);
+
         } else if (data.type === 'master') {
           setHasTemplateChanges(true);
           const position = {
@@ -355,25 +484,18 @@ function App() {
             id: `master-${Date.now()}`,
             position,
             type: 'master',
+            isFromTemplate: data.isFromTemplate,
             data: {
-              ...data.data,
-              label: data.data.label,
-              state_id: `state-${Date.now()}-${Math.random()}`,
-              // Add properties to track that this came from a template
-              fromTemplate: true,
-              templateId: data.id
+               ...data.template
             }
           };
-
           setNodes((nds) => nds.concat(newNode));
         }
         return;
       } catch (error) {
         console.error('Error parsing template data:', error);
       }
-    }
-
-    if (type) {
+    }else if (type) {
       setHasTemplateChanges(true);
       if (type === 'process' && nodes.some(node => node.type === 'process')) {
         showError('Only one process node is allowed');
@@ -401,43 +523,43 @@ function App() {
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [nodes, setNodes, setEdges]);
+  }, [nodes, setNodes,setEdges]);
 
   useEffect(() => {
-    const fetchTaskTemplates = async () => {
-      try {
-        const response = await fetch("http://localhost:8080/tasks", {
-          method: "GET",
-        });
-        const resp = await response.json();
+    // const fetchTaskTemplates = async () => {
+    //   try {
+    //     const response = await fetch("http://localhost:8080/tasks", {
+    //       method: "GET",
+    //     });
+    //     const resp = await response.json();
 
-        const tempArray = resp.map(template => ({
-          id: template.id,
-          type: 'master',
-          timestamp: new Date().toISOString(),
-          data: {
-            ...template,
-            label: template.name || 'task'
-          },
-          // For testing, attach the same API response as child tasks
-          childTasks: resp.map(childItem => ({
-            id: `child-${childItem.id}`,
-            type: 'childTask',
-            name: childItem.name,
-            data: {
-              ...childItem,
-              slug: childItem.name
-            }
-          }))
-        }));
+    //     const tempArray = resp.map(template => ({
+    //       id: template.id,
+    //       type: 'master',
+    //       timestamp: new Date().toISOString(),
+    //       data: {
+    //         ...template,
+    //         label: template.name || 'task'
+    //       },
+    //       // For testing, attach the same API response as child tasks
+    //       childTasks: resp.map(childItem => ({
+    //         id: `child-${childItem.id}`,
+    //         type: 'childTask',
+    //         name: childItem.name,
+    //         data: {
+    //           ...childItem,
+    //           slug: childItem.name
+    //         }
+    //       }))
+    //     }));
 
-        setTaskTemplates(tempArray);
-      } catch (error) {
-        console.log(error);
-      }
-    };
+    //     setTaskTemplates(tempArray);
+    //   } catch (error) {
+    //     console.log(error);
+    //   }
+    // };
 
-    fetchTaskTemplates();
+    // fetchTaskTemplates();
   }, []);
 
   // Compute whether there's a process node for the save button

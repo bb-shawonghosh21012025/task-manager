@@ -147,9 +147,9 @@ export const ProcessNode = memo(({ data, type }) => {
       )}
       <div style={styles.content}>
         <div style={styles.label}>{data.slug || data.process_slug || type}</div>
-        {data.description && (
+        {/* {data.description && (
           <div style={styles.description}>{data.description}</div>
-        )}
+        )} */}
       </div>
       {(type === 'process' || type === 'task') && (
         <Handle
