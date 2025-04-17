@@ -148,7 +148,35 @@ function App() {
 
   const onConnect = useCallback((params) => {
     setHasTemplateChanges(true);
-    // console.log(params.source);
+
+    // const sourceNode = nodes.find(node => node.id === params.source);
+    // const targetNode = nodes.find(node => node.id === params.target);
+
+    // console.log(sourceNode, targetNode);  
+  
+    // if (!sourceNode || !targetNode) {
+    //   console.error("Source or target node not found");
+    //   return;
+    // }
+  
+    // if (sourceNode.type === 'task') {
+    //   setNodes((nds) =>
+    //     nds.map((node) =>
+    //       node.id === targetNode.id
+    //         ? {
+    //             ...node,
+    //             data: {
+    //               ...node.data,
+    //               dependent_task_slug: node.data.dependent_task_slug
+    //                 ? `${node.data.dependent_task_slug},${sourceNode.data.slug}`
+    //                 : sourceNode.data.slug,
+    //             },
+    //           }
+    //         : node
+    //     )
+    //   );
+    // }
+
     setEdges((eds) => addEdge(params, eds));
   }, []);
 
@@ -181,53 +209,99 @@ function App() {
 
     const processTemplate = {
       name: processNode.data.name,
-      slug: processNode.data.process_slug,
-      input_format: JSON.parse(processNode.data.input_format),
-      http_headers: JSON.parse(processNode.data.header),
-      email_list: processNode.data.email_id,
+      slug: processNode.data.slug,
+      input_format: typeof processNode.data.input_format === 'string' ? JSON.parse(processNode.data.input_format) : processNode.data.input_format,
+      http_headers: typeof processNode.data.header === 'string' ? JSON.parse(processNode.data.header) : processNode.data.header,
+      email_list: processNode.data.email_list,
       description: processNode.data.description || "abcd",
     };
 
-    // console.log(processTemplate);
+    console.log(processTemplate);
 
     const csvHeaders = ["name", "slug", "description","help_text", "input_format", "output_format", "dependent_task_slug","host","bulk_input","input_http_method","api_endpoint", "api_timeout_in_ms","response_type","is_json_input_needed","task_type","is_active","is_optional","eta","service_id","email_list","delay_in_ms","master_task_template_slug","action"];
     
-    const csvRows = taskNodes.map((node)=>{
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return ""; // Handle null/undefined
+      const stringValue = value.toString();
+      return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes and wrap in quotes
+    };
+  
+    // Generate CSV rows
+    const csvRows = taskNodes.map((node) => {
       const data = node.data;
       return [
-        data.name,  
-        data.slug,
-        data.description,
-        data.help_text,
-        data.input_format,
-        data.output_format,
-        data.dependent_task_slug,
-        data.host || "",
-        data.bulk_input,
-        data.input_http_method,
-        data.api_endpoint,
-        data.api_timeout_in_ms,
-        data.responseType || "",
-        data.is_json_input_needed,
-        data.task_type || "",
-        data.is_active,
-        data.is_optional,
-        data.eta,
-        data.service_id,
-        data.email_list,
-        BigInt(data.delay_in_ms) || BigInt(100),
-        data.master_task_slug || data.slug,
-        data.action || "",
-      ]
+        escapeCsvValue(data.name),
+        escapeCsvValue(data.slug),
+        escapeCsvValue(data.description),
+        escapeCsvValue(data.help_text),
+        escapeCsvValue(data.input_format),
+        escapeCsvValue(data.output_format),
+        escapeCsvValue(data.dependent_task_slug),
+        escapeCsvValue(data.host || ""),
+        escapeCsvValue(data.bulk_input),
+        escapeCsvValue(data.input_http_method),
+        escapeCsvValue(data.api_endpoint),
+        escapeCsvValue(data.api_timeout_in_ms),
+        escapeCsvValue(data.response_type || ""),
+        escapeCsvValue(data.is_json_input_needed),
+        escapeCsvValue(data.task_type || ""),
+        escapeCsvValue(data.is_active),
+        escapeCsvValue(data.is_optional),
+        escapeCsvValue(data.eta),
+        escapeCsvValue(data.service_id),
+        escapeCsvValue(data.email_list),
+        escapeCsvValue(data.delay_in_ms !== undefined ? BigInt(data.delay_in_ms) : BigInt(0)),
+        escapeCsvValue(data.master_task_slug || ""),
+        escapeCsvValue(data.action || ""),
+      ];
     });
-
-    console.log(csvRows);
-    
+  
+    // Combine headers and rows into CSV content
     const csvContent = [
       csvHeaders.join(","), // Add headers
-      ...csvRows.map(row => row.map(value => `"${value}"`).join(",")) // Add rows
+      ...csvRows.map(row => row.join(",")) // Add rows
     ].join("\n");
 
+    // const csvRows = taskNodes.map((node)=>{
+    //   // console.log(node.data.input_format);
+    //   const data = node.data;
+    //   return [
+    //     data.name,  
+    //     data.slug,
+    //     data.description,
+    //     data.help_text,
+    //     data.input_format,
+    //     data.output_format,
+    //     data.dependent_task_slug,
+    //     data.host || "",
+    //     data.bulk_input,
+    //     data.input_http_method,
+    //     data.api_endpoint,
+    //     data.api_timeout_in_ms,
+    //     data.response_type || "",
+    //     data.is_json_input_needed,
+    //     data.task_type || "",
+    //     data.is_active,
+    //     data.is_optional,
+    //     data.eta,
+    //     data.service_id,
+    //     data.email_list,
+    //     data.delay_in_ms !== undefined ? BigInt(data.delay_in_ms) : BigInt(0),
+    //     data.master_task_slug || "",
+    //     data.action || "",
+    //   ]
+    // });
+
+    // //// master_task_slug and dependency by connecting edges ,action should be update or add. 
+    // console.log(csvRows);
+    
+    // const csvContent = [
+    //   csvHeaders.join(","), // Add headers
+    //   ...csvRows.map(row => row.map(value => `"${value}"`).join(",")) // Add rows
+    // ].join("\n");
+
+    
+    // console.log(csvContent);
 
     // Create a Blob for the CSV file
     const csvBlob = new Blob([csvContent], { type: "text/csv" });
@@ -266,7 +340,7 @@ function App() {
       console.log("Response:", response.data);
     } catch (error) {
       console.error("Error saving template:", error);
-      alert(error.response?.data?.message || "An error occurred while saving the template.");
+      alert(error.response?.data?.message || "An error occurred while    saving the template.");
     }
     
     
@@ -278,6 +352,7 @@ function App() {
     // });;
     setIsLoadedTemplate(false);
     setHasTemplateChanges(false);
+    setRightSidebarOpen(false);
   };
 
   const handleLoadTemplate = (template) => {
@@ -396,6 +471,7 @@ function App() {
     if (templateData) {
       try {
         const data = JSON.parse(templateData);
+        console.log(data.type);
 
         if (data.type === 'flow' && nodes.length === 0) {
           setIsLoadedTemplate(true);
@@ -406,6 +482,7 @@ function App() {
           const response = await fetchProcessTemplate(data.template.id);
 
           const nodeData = response.task_templates;
+          console.log(nodeData);
           const childParentMapping = response.child_parent_mappings;
 
           // creating NODES
@@ -433,7 +510,7 @@ function App() {
           // Center the task nodes below the process node
           const startX = processNode.position.x - rowWidth / 2 + gridSpacing / 2; // Center the row horizontally
           const startY = processNode.position.y + 300; // Start position for task nodes below the process node
-
+          
           const taskNodes = nodeData.map((task, index) => ({
             id: `task-${task.id}`,
             type: 'task',
@@ -443,6 +520,10 @@ function App() {
             },
             data: {
               ...task,
+              input_format: typeof task.input_format === 'object' ? JSON.stringify(task.input_format) : task.input_format,
+              // header: typeof task.header === 'object' ? JSON.stringify(task.header) : task.header,
+              output_format: typeof task.output_format === 'object' ? JSON.stringify(task.output_format) : task.output_format,
+              eta:typeof task.eta === 'object' ? JSON.stringify(task.eta) : task.eta,
             },
           }));
 
@@ -486,7 +567,26 @@ function App() {
             type: 'master',
             isFromTemplate: data.isFromTemplate,
             data: {
-               ...data.template
+               ...data.template,
+               master_task_slug:data.template.slug,
+            }
+          };
+          setNodes((nds) => nds.concat(newNode));
+        }else if(data.type === 'task') {
+          console.log(data);
+          setHasTemplateChanges(true);
+          const position = {
+            x: event.clientX - event.target.getBoundingClientRect().left,
+            y: event.clientY - event.target.getBoundingClientRect().top,
+          };
+
+          const newNode = {
+            id: `task-${Date.now()}`,
+            type: 'task',
+            position,
+            data: {
+              ...data.template,
+              master_task_slug:data.master_task_slug || "",
             }
           };
           setNodes((nds) => nds.concat(newNode));

@@ -34,6 +34,7 @@ export const TemplatesSidebar = ({
 }) => {
    const [templates,setTemplates] = useState([]);
    const [masterTemplates,setMasterTemplates] = useState([]);
+   const [childTasks, setChildTasks] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -117,14 +118,15 @@ export const TemplatesSidebar = ({
     }
   }
   
-  const toggleTaskExpansion = (taskId, e) => {
+  const toggleTaskExpansion = async (task, e) => {
     e.stopPropagation();
     
     // Get position of the clicked task item
     const rect = e.currentTarget.getBoundingClientRect();
     
     // If this task is already active, close it
-    if (activeTaskId === taskId) {
+    // console.log(task);
+    if (activeTaskId === task.id) {
       setActiveTaskId(null);
       setChildTasksPosition(null);
       return;
@@ -136,14 +138,34 @@ export const TemplatesSidebar = ({
       right: window.innerWidth - rect.left + 10
     });
     
-    // Set this task as active
-    setActiveTaskId(taskId);
+    
+    try {
+      const response = await axios.get(`http://localhost:8011/bb2admin/v2/task-template/${task.id}`,
+        {
+          headers : { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+        }
+      );
+
+      setChildTasks([]);
+
+      response.data.map((data)=>{
+        setChildTasks((prev)=>[...prev,{...data,master_task_slug:task.slug}]);
+      })
+
+      // setChildTasks([{...response.data,master_task_slug:task.slug}]);
+      // console.log("child tasks", response.data);
+      // console.log(childTasks)
+    } catch (error) {
+      console.log("Error fetching child tasks", error);
+      
+    }
+    setActiveTaskId(task.id);
   };
 
   const handleDragStart = (event, template, type) => {
     event.dataTransfer.setData("application/reactflow", type);
 
-    if (type === 'task' || type === 'childTask') {
+    if (type === 'task' && type === 'childTask') {
       event.dataTransfer.setData('application/reactflow-template', JSON.stringify(template));
       event.dataTransfer.effectAllowed = 'move';
     } else if (type === "flow") {
@@ -158,7 +180,17 @@ export const TemplatesSidebar = ({
       let transferData = {
         type,
         template,
-        isFromTemplate : true
+        isFromTemplate : true,
+        task_slug:template.slug
+      };
+      event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
+      event.dataTransfer.effectAllowed = 'move';
+    }else if(type === 'task'){
+      let transferData = {
+        type,
+        template,
+        task_slug:template.slug,
+        master_task_slug:template.master_task_slug
       };
       event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
       event.dataTransfer.effectAllowed = 'move';
@@ -376,7 +408,7 @@ export const TemplatesSidebar = ({
                       cursor: 'pointer',
                       color: 'grey'
                     }}
-                    onClick={(e) => toggleTaskExpansion(task.id, e)}
+                    onClick={(e) => toggleTaskExpansion(task, e)}
                   >
                     {activeTaskId === task.id ? (
                       <EyeClosed size={16} />
@@ -408,7 +440,7 @@ export const TemplatesSidebar = ({
             boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
           }}
         >
-          {taskTemplates.map(task => {
+          {masterTemplates.map(task => {
             if (task.id === activeTaskId) {
               return (
                 <React.Fragment key={`child-${task.id}`}>
@@ -419,10 +451,10 @@ export const TemplatesSidebar = ({
                     borderBottom: '1px solid #eee',
                     paddingBottom: '5px'
                   }}>
-                    Child Tasks for {task.data.slug}
+                    Child Tasks for {task.slug}
                   </div>
                   
-                  {task.childTasks?.map(childTask => (
+                  {childTasks?.map(childTask => (
                     <div
                       key={childTask.id}
                       style={{
@@ -435,14 +467,14 @@ export const TemplatesSidebar = ({
                         fontSize: '14px'
                       }}
                       draggable
-                      onDragStart={(e) => handleDragStart(e, childTask, 'childTask')}
+                      onDragStart={(e) => handleDragStart(e, childTask, 'task')}
                       onDragEnd={handleDragEnd}
                     >
-                      {childTask.data?.slug || childTask.name}
+                      {childTask.slug || childTask.name}
                     </div>
                   ))}
                   
-                  {(!task.childTasks || task.childTasks.length === 0) && (
+                  {(childTasks.length === 0) && (
                     <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>
                       No child tasks available
                     </div>

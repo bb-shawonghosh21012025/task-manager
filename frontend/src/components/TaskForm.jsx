@@ -115,23 +115,26 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     slug: node.data.slug || '',
     description: node.data.description || '',
     help_text: node.data.help_text || '',
-    input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null, 2),
-    output_format: typeof node.data.output_format === 'string' ? node.data.output_format : JSON.stringify(node.data.output_format || {}, null, 2),
+    input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null),
+    output_format: typeof node.data.output_format === 'string' ? node.data.output_format : JSON.stringify(node.data.output_format || {}, null),
     dependent_task_slug: node.data.dependent_task_slug || '',
     repeats_on: node.data.repeats_on || '',
     bulk_input: node.data.bulk_input || '',
     input_http_method: node.data.input_http_method || '',
     api_endpoint: node.data.api_endpoint || '',
     api_timeout_in_ms: node.data.api_timeout_in_ms || 30000,
-    response_type: node.data.responseType,
+    response_type: node.data.responseType || node.data.response_type || '',
     is_json_input_needed: node.data.is_json_input_needed || false,
     task_type: node.data.task_type || '',
     is_active: node.data.is_active || true,
     is_optional: node.data.is_optional || false,
-    eta: typeof node.data.eta === 'string' ? node.data.eta : JSON.stringify(node.data.eta || {}, null, 2),
+    eta: typeof node.data.eta === 'string' ? node.data.eta : JSON.stringify(node.data.eta || {}, null),
     service_id: node.data.service_id || '',
     email_list: node.data.email_list || '',
     action: node.data.action || '',
+    host:node.data.host || '',
+    delay_in_ms: node.data.delay_in_ms || '',
+    // response_type: node.data.response_type || '',
   });
 
   const [jsonErrors, setJsonErrors] = useState({
@@ -213,9 +216,9 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       help_text: formData.help_text,
       input_format: typeof formData.input_format === 'string' ? JSON.parse(formData.input_format) : formData.input_format,
       output_format: typeof formData.output_format === 'string' ? JSON.parse(formData.output_format) : formData.output_format,
-      dependent_task_slug: Array.isArray(formData.dependent_task_slug) ? formData.dependent_task_slug : [formData.dependent_task_slug],
+      dependent_task_slug: formData.dependent_task_slug || "",
       host: formData.host || "",
-      bulk_input: typeof formData.bulk_input === 'boolean' ? formData.bulk_input : false,
+      bulk_input: formData.bulk_input || "",
       input_http_method: parseInt(formData.input_http_method, 10), // Convert to number
       api_endpoint: formData.api_endpoint,
       api_timeout_in_ms: parseInt(formData.api_timeout_in_ms, 10), // Convert to number
@@ -284,7 +287,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       task_type: parseInt(formData.task_type, 10), // Convert to number
       is_active: formData.is_active,
       is_optional: formData.is_optional,
-      eta: typeof formData.eta === 'string' ? JSON.parse(formData.eta) : formData.eta,
+      eta: typeof formData.eta === 'string' ? JSON.parse(formData.eta.replace(/\s+/g, '')) : formData.eta,
       service_id: parseInt(formData.service_id, 10), // Convert to number
       email_list: formData.email_list,
     };
@@ -513,7 +516,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, response_type: e.target.value })}
+                onChange={(e) =>  setFormData({ ...formData, response_type: e.target.value })}
               />
             </Grid>
             
