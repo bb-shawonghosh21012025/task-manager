@@ -216,7 +216,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       help_text: formData.help_text,
       input_format: typeof formData.input_format === 'string' ? JSON.parse(formData.input_format) : formData.input_format,
       output_format: typeof formData.output_format === 'string' ? JSON.parse(formData.output_format) : formData.output_format,
-      dependent_task_slug: formData.dependent_task_slug || "",
+      dependent_task_slug: formData.dependent_task_slug || [""],
       host: formData.host || "",
       bulk_input: formData.bulk_input || "",
       input_http_method: parseInt(formData.input_http_method, 10), // Convert to number
