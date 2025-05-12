@@ -33,6 +33,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -71,6 +72,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -87,22 +89,23 @@
 }
 
 .notfound h2 {
-  font-family: 'Montserrat', sans-serif;;
+  font-family: 'Montserrat', sans-serif;
+  ;
   font-size: 50px;
   font-weight: 900;
   margin: 100px;
   margin-top: 200px;
-  color:#500472;
+  color: #500472;
 }
 
 .notfound a {
   font-family: 'Titillium Web', sans-serif;
   display: inline-block;
   text-transform: uppercase;
-  color: 	white;
+  color: white;
   text-decoration: none;
   border: none;
-  background:#500472;
+  background: #500472;
   padding: 10px 40px;
   font-size: 14px;
   font-weight: 700;
@@ -115,7 +118,7 @@
 
 .loader {
   margin: auto;
-  border: 10px solid #000000b2  ;
+  border: 10px solid #000000b2;
   border-top: 10px solid #500472;
   border-radius: 50%;
   width: 80px;
@@ -124,8 +127,13 @@
 }
 
 @keyframes spin {
-  0% {transform: rotate(0deg);}
-  100% {transform: rotate(360deg);}
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .flex-section {
@@ -144,7 +152,7 @@
 
 .listheading {
   color: black;
-  font-size:20px;
+  font-size: 20px;
   font-weight: bold;
 }
 
@@ -169,7 +177,7 @@
 
 .file-input label {
   display: inline;
-  
+
   width: 200px;
   height: 50px;
   border-radius: 5px;
@@ -247,6 +255,7 @@ input[type="file"] {
   font-weight: 800;
   transition: transform .2s ease-out;
 }
+
 .custom-file-download-upload-button {
   width: 180px;
   height: 30px;
@@ -393,7 +402,7 @@ input[type="file"] {
   color: #fff;
   font-weight: 500;
   border-radius: 5px;
-  margin-top:10px;
+  margin-top: 10px;
   transition: transform .2s ease-out;
 }
 
@@ -414,12 +423,13 @@ input[type="file"] {
   margin-top: 15px;
 }
 
-.note{
+.note {
   padding-left: 20vw;
   height: 200px;
   width: 150px;
 }
-.noteContent{
+
+.noteContent {
   height: 200px;
   width: 25vw;
   border-style: hidden;
@@ -430,25 +440,28 @@ input[type="file"] {
 
 /* toggle in label designing */
 .toggle {
-  position : relative ;
-  display : inline-block;
-  width : 50px;
-  height : 26px;
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
   background-color: #cc0000;
   border-radius: 30px;
   border: 2px solid gray;
   margin-top: 20px;
 }
-     .flexRow{
+
+.flexRow {
   display: flex;
   flex-direction: row;
 }
-.note{
+
+.note {
   padding-left: 20vw;
   height: 200px;
   width: 150px;
 }
-.noteContent{
+
+.noteContent {
   height: 200px;
   width: 25vw;
   border-style: hidden;
@@ -459,10 +472,10 @@ input[type="file"] {
 
 /* toggle in label designing */
 .toggle {
-  position : relative ;
-  display : inline-block;
-  width : 50px;
-  height : 26px;
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
   background-color: #cc0000;
   border-radius: 30px;
   border: 2px solid gray;
@@ -479,24 +492,25 @@ input[type="file"] {
   background-color: gray;
   top: 1px;
   left: 1px;
-  transition:  all 0.5s;
+  transition: all 0.5s;
 }
 
 
 /* Checkbox checked effect */
-.checkbox:checked + .toggle::after {
-  left : 24px;
+.checkbox:checked+.toggle::after {
+  left: 24px;
 }
 
 /* Checkbox checked toggle label bg color */
-.checkbox:checked + .toggle {
+.checkbox:checked+.toggle {
   background-color: green;
 }
 
 /* Checkbox vanished */
 .checkbox {
-  display : none;
+  display: none;
 }
+
 .apartment-file-upload {
   width: 200px;
   height: 36px;
@@ -510,7 +524,7 @@ input[type="file"] {
   color: #fff;
   font-weight: 500;
   border-radius: 5px;
-  margin-top:10px;
+  margin-top: 10px;
   transition: transform .2s ease-out;
 }
 
@@ -568,14 +582,16 @@ input[type="file"] {
   font-weight: bold;
   color: #888;
 }
+
 .searchInputs {
   display: flex;
   flex-direction: column;
   position: relative;
 }
-.searchInputs input{
+
+.searchInputs input {
   background-color: white;
-  border:1px solid #500472;
+  border: 1px solid #500472;
   border-radius: 2px;
   border-top-right-radius: 0px;
   border-bottom-right-radius: 0px;
@@ -584,8 +600,10 @@ input[type="file"] {
   height: 30px;
   width: 200px;
 }
+
 .searchData {
-  visibility: visible; /* Or use 'hidden' / controlled via class toggling */
+  visibility: visible;
+  /* Or use 'hidden' / controlled via class toggling */
   position: absolute;
   top: 100%;
   left: 0;
@@ -612,37 +630,53 @@ input[type="file"] {
   cursor: grab;
   justify-content: space-between;
 }
-.searchData li{
-  margin-left:10px;
+
+.searchData li {
+  margin-left: 10px;
 }
-.search .searchIcon{
- position:"relative";
- margin-left: -2.3%;
- width: 8%;
- height: 8%; 
+
+.searchData .dataItem .dataName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: inline-block;
 }
-li:hover{
+
+
+.search .searchIcon {
+  position: "relative";
+  margin-left: -2.3%;
+  width: 8%;
+  height: 8%;
+}
+
+li:hover {
   background-color: lightgrey;
 }
+
 .search-icon {
   position: absolute;
   margin-right: 15px;
   margin-top: 2px;
-  right:0;
+  right: 0;
   width: 25px;
   height: 25px;
   fill: black;
 }
-.main-display{
+
+.main-display {
   display: flex;
   flex-direction: row;
 }
+
 h5 {
   font-size: 36px;
   font-weight: bold;
-  color:black;
+  color: black;
   margin-bottom: 20px;
 }
+
 .custom-table {
 
   width: 100%;
@@ -659,17 +693,14 @@ h5 {
 
 }
 
-.custom-table
-thead {
+.custom-table thead {
 
   background-color: #500472;
 
 }
 
-.custom-table
-th,
-.custom-table
-td {
+.custom-table th,
+.custom-table td {
 
   padding: 12px 15px;
 
@@ -677,8 +708,7 @@ td {
 
 }
 
-.custom-table
-th {
+.custom-table th {
 
   padding-right: 50px;
 
@@ -695,12 +725,11 @@ tr:nth-child(even) {
 
 } */
 
-.custom-table
-tbody
-tr:hover {
+.custom-table tbody tr:hover {
 
   background-color: #ddd;
 }
+
 .custom-table thead tr {
   cursor: pointer;
   border-bottom: 1px solid #500472;
@@ -708,6 +737,7 @@ tr:hover {
   color: white;
   font-weight: bold;
 }
+
 .custom-table tbody tr {
   cursor: pointer;
   border-bottom: 2px solid #500472;
@@ -716,28 +746,28 @@ tr:hover {
 }
 
 .custom-user-group-link {
-  background-color: #500472; 
-  color: white; 
-  padding: 10px 20px; 
-  font-size: 14px; 
-  font-weight: bold; 
-  border: none; 
-  border-radius: 5px; 
-  cursor: pointer; 
+  background-color: #500472;
+  color: white;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
   margin-left: 10px;
   margin-top: 20px;
 }
 
 .error-dialog .MuiDialog-paper {
-  top: 25%; 
-  max-width: 500px; 
-  width: 90%; 
-  margin: 0 auto; 
+  top: 25%;
+  max-width: 500px;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .error-dialog .MuiDialogContent-root {
-  overflow: visible; 
-  padding: 16px; 
+  overflow: visible;
+  padding: 16px;
 }
 
 .error-dialog .error-close-btn {
@@ -776,6 +806,7 @@ tr:hover {
   left: 45%;
   width: 400px;
 }
+
 /* NodeStyles.css */
 
 .dropdown-container {
@@ -789,7 +820,7 @@ tr:hover {
   background-color: #500472 !important;
   border-color: #500472 !important;
   font-weight: bold !important;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
 }
 
 .dropdown-menu {
@@ -805,7 +836,7 @@ tr:hover {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .node-item {
@@ -820,13 +851,13 @@ tr:hover {
   color: white;
   user-select: none;
   font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .node-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .node {
@@ -879,12 +910,13 @@ tr:hover {
   border-radius: 50%;
   border: 1px solid white;
 }
+
 .templates-sidebar-container {
   padding: 20px;
   height: 100%;
   width: 100%;
   background: white;
-  display: relative;  
+  display: relative;
   flex-direction: column;
   gap: 20px;
 }
@@ -917,6 +949,7 @@ tr:hover {
   border-radius: 3px;
   font-size: 14px;
 }
+
 .container {
   position: fixed;
   top: 0;
@@ -936,7 +969,8 @@ tr:hover {
   background: #ffffff;
   width: 250px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  overflow: hidden; /* Prevent content overflow when collapsed */
+  overflow: hidden;
+  /* Prevent content overflow when collapsed */
 }
 
 .sidebar-collapsed {
@@ -956,7 +990,7 @@ tr:hover {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  transition: all 0.3s ease; 
+  transition: all 0.3s ease;
 }
 
 .toggle-left {
@@ -973,15 +1007,15 @@ tr:hover {
   flex: 1;
   height: 100%;
 }
+
 .custom-form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
   border-color: #500472;
 }
 
 .custom-form .MuiOutlinedInput-root.Mui-focused input {
-  color: #500472;
+  color: #000000;
 }
 
 .custom-form .MuiInputLabel-root.Mui-focused {
   color: #500472;
 }
-

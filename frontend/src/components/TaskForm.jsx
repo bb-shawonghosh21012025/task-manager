@@ -1,4 +1,5 @@
-import React, { axios,useState } from 'react';
+import React, { useState } from 'react';
+import axios from 'axios';
 import {
   TextField,
   Checkbox,
@@ -11,33 +12,11 @@ import {
 
 import { ErrorModal } from '../hooks/ErrorModal';
 
-
-
 const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) => {
   // Check if this node came from a template
-
   const isFromTemplate = node.isFromTemplate;
   const templateId = node.data.templateId;
-
-  const [error, setError] = useState(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [success, setConfirm] = useState(false);
-
-  const showError = (message) => {
-    setError(message);
-    setIsOpen(true);
-  };
-  const showConfirm = (message) => {
-    setConfirm(message);
-    setIsOpen(true);
-  };
-  const handleClose = () => {
-    setIsOpen(false);
-    setError(null);
-    setConfirm(false);
-  };
-
-  // console.log(node)
+  const nodeType = node.type; // Get the node type to apply correct validation
 
   const [formData, setFormData] = useState({
     name: node.data.name || '',
@@ -52,22 +31,42 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     input_http_method: node.data.input_http_method || '',
     api_endpoint: node.data.api_endpoint || '',
     api_timeout_in_ms: node.data.api_timeout_in_ms || 30000,
-    response_type: node.data.responseType,
+    response_type: node.data.response_type || '',
     is_json_input_needed: node.data.is_json_input_needed || false,
     task_type: node.data.task_type || '',
     is_active: node.data.is_active || true,
     is_optional: node.data.is_optional || false,
-    eta: typeof node.data.eta === 'string' ? node.data.eta : JSON.stringify(node.data.eta || {}, null, 2),
+    eta: typeof node.data.eta === 'string' ? node.data.eta : JSON.stringify(node.data.eta || {}, null),
     service_id: node.data.service_id || '',
     email_list: node.data.email_list || '',
     action: node.data.action || '',
+    host: node.data.host || '',
+    delay_in_ms: node.data.delay_in_ms || '',
   });
 
+  // Track field validation errors
+  const [validationErrors, setValidationErrors] = useState({});
+  
   const [jsonErrors, setJsonErrors] = useState({
     input_format: false,
     output_format: false,
     eta: false,
   });
+
+  const [error, setError] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const showError = (message) => {
+    console.log("Showing error:", message);
+    setError(message);
+    setIsOpen(true);
+    console.log("isOpen set to:", true);
+  };
+
+  const handleCloseErrorModal = () => {
+    setError(null);
+    setIsOpen(false);
+  };
 
   const validateJson = (value, field) => {
     try {
@@ -79,13 +78,41 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       return false;
     }
   };
+
+  // Validate required fields based on node type
+  const validateRequiredFields = () => {
+    const errors = {};
+    
+    // Common required fields for both 'task' and 'master'
+    if (!formData.name.trim()) errors.name = 'Name is required';
+    if (!formData.slug.trim()) errors.slug = 'Slug is required';
+    if (!formData.description.trim()) errors.description = 'Description is required';
+    if (!formData.task_type) errors.task_type = 'Task type is required';
+    if (!formData.eta.trim()) errors.eta = 'ETA is required';
+    if (!formData.service_id) errors.service_id = 'Service ID is required';
+    if (!formData.api_endpoint.trim()) errors.api_endpoint = 'API endpoint is required';
+    if (!formData.api_timeout_in_ms) errors.api_timeout_in_ms = 'API timeout is required';
+    
+    // Fields only required for 'task' type
+    if (nodeType === 'task') {
+      if (!formData.input_http_method) errors.input_http_method = 'Input HTTP method is required';
+      if (!formData.response_type) errors.response_type = 'Response type is required';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleUseAsTask = () => {
     // Validate all JSON fields
-    if (!validateJson(formData.input_format, 'input_format') ||
-      !validateJson(formData.output_format, 'output_format') ||
-      !validateJson(formData.eta, 'eta')) {
-      return;
-    }
+    const jsonValid = validateJson(formData.input_format, 'input_format') &&
+      validateJson(formData.output_format, 'output_format') &&
+      validateJson(formData.eta, 'eta');
+    
+    if (!jsonValid) return;
+    
+    // Validate required fields
+    if (!validateRequiredFields()) return;
 
     // Create task data with explicit node type
     const taskData = {
@@ -117,14 +144,17 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
       return;
     }
-    const data = { ...formData, type: 'task' }
+    
+    // Validate required fields
+    if (!validateRequiredFields()) return;
+    
+    const data = { ...formData, type: 'task' };
     onSave(data);
     onClose();
-    console.log(data); //etsssfaf
   };
 
   const handleSaveTemplate = async () => {
-
+    // Validate all JSON fields
     const isInputFormatValid = validateJson(formData.input_format, 'input_format');
     const isOutputFormatValid = validateJson(formData.output_format, 'output_format');
     const isEtaValid = validateJson(formData.eta, 'eta');
@@ -132,8 +162,9 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
       return;
     }
-
-
+    
+    // Validate required fields
+    if (!validateRequiredFields()) return;
 
     const requestBody = {
       name: formData.name,
@@ -158,20 +189,16 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       email_list: formData.email_list,
     };
 
-    console.log(requestBody);
-
     try {
       const response = await axios.post('http://localhost:8011/bb2admin/v2/master-task-templates', requestBody, {
         headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
       });
-      showConfirm("Template Created Successfully");
+      alert("Template Created Successfully");
       console.log('Template saved successfully:', response);
     } catch (error) {
       console.error('Error saving template:', error);
-      showError(error.response.data.message);
+      showError(error.response?.data?.slug?.message || 'An unexpected error occurred.');
     }
-
-    // console.log(requestBody);
 
     onClose();
   };
@@ -194,6 +221,9 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     if (!isInputFormatValid || !isOutputFormatValid || !isEtaValid) {
       return;
     }
+    
+    // Validate required fields
+    if (!validateRequiredFields()) return;
 
     const requestBody = {
       name: formData.name,
@@ -218,25 +248,32 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
       email_list: formData.email_list,
     };
 
-    console.log(node.data.id);
-
     try {
       const response = await axios.put(`http://localhost:8011/bb2admin/v2/master-task-templates/${node.data.id}`, requestBody, {
         headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
       });
-      showConfirm("Template Updated Successfully");
+      alert("Template Updated Successfully");
       console.log('Template saved successfully:', response);
     } catch (error) {
       console.error('Error saving template:', error);
-      showError(error.response.data.message);
+      showError(error.response?.data?.message || 'An unexpected error occurred.');
     }
 
     onClose();
-  }
+  };
+
+  // Handle field change with validation clearing
+  const handleFieldChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+    // Clear validation error when field is edited
+    if (validationErrors[field]) {
+      setValidationErrors({ ...validationErrors, [field]: undefined });
+    }
+  };
+
   return (
     <Dialog
       open={true}
-      onClose={onClose}
       fullWidth
       maxWidth="md"
     >
@@ -257,7 +294,9 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 fullWidth
                 margin="normal"
                 required
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                error={!!validationErrors.name}
+                helperText={validationErrors.name || ""}
+                onChange={(e) => handleFieldChange('name', e.target.value)}
               />
             </Grid>
 
@@ -270,7 +309,9 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 fullWidth
                 margin="normal"
                 required
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                error={!!validationErrors.slug}
+                helperText={validationErrors.slug || ""}
+                onChange={(e) => handleFieldChange('slug', e.target.value)}
               />
             </Grid>
 
@@ -284,7 +325,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 margin="normal"
                 multiline
                 rows={3}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                required
+                error={!!validationErrors.description}
+                helperText={validationErrors.description || ""}
+                onChange={(e) => handleFieldChange('description', e.target.value)}
               />
             </Grid>
 
@@ -298,7 +342,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 margin="normal"
                 multiline
                 rows={3}
-                onChange={(e) => setFormData({ ...formData, help_text: e.target.value })}
+                onChange={(e) => handleFieldChange('help_text', e.target.value)}
               />
             </Grid>
 
@@ -342,7 +386,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, dependent_task_slug: e.target.value })}
+                onChange={(e) => handleFieldChange('dependent_task_slug', e.target.value)}
               />
             </Grid>
 
@@ -354,7 +398,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+                onChange={(e) => handleFieldChange('host', e.target.value)}
               />
             </Grid>
 
@@ -367,7 +411,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, repeats_on: e.target.value })}
+                onChange={(e) => handleFieldChange('repeats_on', e.target.value)}
               />
             </Grid>
 
@@ -379,7 +423,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, bulk_input: e.target.value })}
+                onChange={(e) => handleFieldChange('bulk_input', e.target.value)}
               />
             </Grid>
 
@@ -391,7 +435,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, input_http_method: e.target.value })}
+                required={nodeType === 'task'}
+                error={!!validationErrors.input_http_method}
+                helperText={validationErrors.input_http_method || ""}
+                onChange={(e) => handleFieldChange('input_http_method', e.target.value)}
               />
             </Grid>
 
@@ -403,7 +450,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, api_endpoint: e.target.value })}
+                required
+                error={!!validationErrors.api_endpoint}
+                helperText={validationErrors.api_endpoint || ""}
+                onChange={(e) => handleFieldChange('api_endpoint', e.target.value)}
               />
             </Grid>
 
@@ -416,7 +466,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, api_timeout_in_ms: parseInt(e.target.value) })}
+                required
+                error={!!validationErrors.api_timeout_in_ms}
+                helperText={validationErrors.api_timeout_in_ms || ""}
+                onChange={(e) => handleFieldChange('api_timeout_in_ms', parseInt(e.target.value))}
               />
             </Grid>
 
@@ -428,7 +481,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, response_type: e.target.value })}
+                required={nodeType === 'task'}
+                error={!!validationErrors.response_type}
+                helperText={validationErrors.response_type || ""}
+                onChange={(e) => handleFieldChange('response_type', e.target.value)}
               />
             </Grid>
 
@@ -437,7 +493,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 control={
                   <Checkbox
                     checked={formData.is_json_input_needed}
-                    onChange={(e) => setFormData({ ...formData, is_json_input_needed: e.target.checked })}
+                    onChange={(e) => handleFieldChange('is_json_input_needed', e.target.checked)}
                   />
                 }
                 label="Is JSON input needed"
@@ -453,7 +509,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, task_type: e.target.value })}
+                required
+                error={!!validationErrors.task_type}
+                helperText={validationErrors.task_type || ""}
+                onChange={(e) => handleFieldChange('task_type', e.target.value)}
               />
             </Grid>
 
@@ -463,7 +522,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                   <Checkbox
                     id="is_active"
                     checked={formData.is_active}
-                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    onChange={(e) => handleFieldChange('is_active', e.target.checked)}
                   />
                 }
                 label="Is active"
@@ -477,7 +536,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                   <Checkbox
                     id="is_optional"
                     checked={formData.is_optional}
-                    onChange={(e) => setFormData({ ...formData, is_optional: e.target.checked })}
+                    onChange={(e) => handleFieldChange('is_optional', e.target.checked)}
                   />
                 }
                 label="Is optional"
@@ -495,8 +554,9 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 margin="normal"
                 multiline
                 rows={5}
-                error={!!jsonErrors.eta}
-                helperText={jsonErrors.eta || ""}
+                required
+                error={!!jsonErrors.eta || !!validationErrors.eta}
+                helperText={jsonErrors.eta || validationErrors.eta || ""}
                 onChange={(e) => handleJsonChange(e, 'eta')}
               />
             </Grid>
@@ -509,7 +569,10 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, service_id: e.target.value })}
+                required
+                error={!!validationErrors.service_id}
+                helperText={validationErrors.service_id || ""}
+                onChange={(e) => handleFieldChange('service_id', e.target.value)}
               />
             </Grid>
 
@@ -521,7 +584,18 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, email_list: e.target.value })}
+                onChange={(e) => handleFieldChange('email_list', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                id="delay_in_ms"
+                label="Delay (in ms)"
+                value={formData.delay_in_ms}
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                onChange={(e) => handleFieldChange('delay_in_ms', e.target.value)}
               />
             </Grid>
 
@@ -533,7 +607,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
-                onChange={(e) => setFormData({ ...formData, action: e.target.value })}
+                onChange={(e) => handleFieldChange('action', e.target.value)}
               />
             </Grid>
           </Grid>
@@ -588,12 +662,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 </Button>
               </>
             )}
-            <ErrorModal
-              isOpen={isOpen}
-              title="Error"
-              message={error}
-              onClose={handleClose}
-            />
+
             {!isFromTemplate && (
               <Button
                 variant="contained"
@@ -602,14 +671,16 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
               >
                 Submit
               </Button>
-
-
             )}
-
           </>
-
         )}
       </DialogActions>
+      <ErrorModal
+        isOpen={isOpen}
+        title="Error"
+        message={error}
+        onClose={handleCloseErrorModal}
+      />
     </Dialog>
   );
 };

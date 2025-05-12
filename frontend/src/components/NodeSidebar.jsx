@@ -71,7 +71,7 @@ export const NodeDropdown = () => {
   );
 };
 
-export const ProcessNode = memo(({ data, type }) => {
+export const Node = memo(({ data, type }) => {
   return (
     <div className={`node ${type}-node`}>
       {type === 'task' && (
@@ -83,9 +83,6 @@ export const ProcessNode = memo(({ data, type }) => {
       )}
       <div className="node-content">
         <div className="node-label">{data.slug || data.process_slug || type}</div>
-        {data.description && (
-          <div className="node-description">{data.description}</div>
-        )}
       </div>
       {(type === 'process' || type === 'task') && (
         <Handle

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
   IconButton,
   Typography,
   Paper
 } from '@mui/material';
+import axios from 'axios';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import '../App.css';
@@ -16,8 +17,9 @@ export const TemplatesSidebar = ({
   existingNodes,
   onLoadTemplate
 }) => {
-   const [templates,setTemplates] = useState([]);
-   const [masterTemplates,setMasterTemplates] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [masterTemplates, setMasterTemplates] = useState([]);
+  const [childTasks, setChildTasks] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -25,11 +27,11 @@ export const TemplatesSidebar = ({
   const [taskSearchTerm, setTaskSearchTerm] = useState('');
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [childTasksPosition, setChildTasksPosition] = useState(null);
-  
+
   // References for the search dropdowns
   const processTemplateRef = useRef(null);
   const taskTemplateRef = useRef(null);
-  
+
   // Visibility state for the dropdowns
   const [processTemplateListDisplay, setProcessTemplateListDisplay] = useState("hidden");
   const [taskTemplateListDisplay, setTaskTemplateListDisplay] = useState("hidden");
@@ -45,7 +47,7 @@ export const TemplatesSidebar = ({
       const checkProcess = processTemplateRef.current != null
         ? processTemplateRef.current.contains(e.target)
         : false;
-      
+
       if (checkProcess) {
         setProcessTemplateListDisplay("visible");
       } else {
@@ -58,7 +60,7 @@ export const TemplatesSidebar = ({
       const checkTask = taskTemplateRef.current != null
         ? taskTemplateRef.current.contains(e.target)
         : false;
-      
+
       if (checkTask) {
         setTaskTemplateListDisplay("visible");
       } else {
@@ -68,7 +70,7 @@ export const TemplatesSidebar = ({
 
     return () => {
       // Clean up event listeners
-      document.removeEventListener("click", () => {});
+      document.removeEventListener("click", () => { });
     };
   }, []);
 
@@ -82,7 +84,7 @@ export const TemplatesSidebar = ({
       );
       setTemplates(response.data);
       console.log(response.data);
-    } catch{
+    } catch {
       setIsLoading(false);
     }
   };
@@ -97,37 +99,58 @@ export const TemplatesSidebar = ({
       // console.log(response);
       setMasterTemplates(response.data.data);
     } catch (error) {
-      console.log("error in fetchMasterTaskTemplate",error);
+      console.log("error in fetchMasterTaskTemplate", error);
     }
   }
-  
-  const toggleTaskExpansion = (taskId, e) => {
+
+  const toggleTaskExpansion = async (task, e) => {
     e.stopPropagation();
-    
+
     // Get position of the clicked task item
     const rect = e.currentTarget.getBoundingClientRect();
-    
+
     // If this task is already active, close it
-    if (activeTaskId === taskId) {
+    // console.log(task);
+    if (activeTaskId === task.id) {
       setActiveTaskId(null);
       setChildTasksPosition(null);
       return;
     }
-    
+
     // Calculate position for the child tasks dropdown
     setChildTasksPosition({
       top: rect.top,
       right: window.innerWidth - rect.left + 10
     });
-    
-    // Set this task as active
-    setActiveTaskId(taskId);
+
+
+    try {
+      const response = await axios.get(`http://localhost:8011/bb2admin/v2/task-template/${task.id}`,
+        {
+          headers : { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+        }
+      );
+
+      setChildTasks([]);
+
+      response.data.map((data) => {
+        setChildTasks((prev) => [...prev, { ...data, master_task_slug: task.slug }]);
+      })
+
+      // setChildTasks([{...response.data,master_task_slug:task.slug}]);
+      // console.log("child tasks", response.data);
+      // console.log(childTasks)
+    } catch (error) {
+      console.log("Error fetching child tasks", error);
+
+    }
+    setActiveTaskId(task.id);
   };
 
   const handleDragStart = (event, template, type) => {
     event.dataTransfer.setData("application/reactflow", type);
 
-    if (type === 'task' || type === 'childTask') {
+    if (type === 'task' && type === 'childTask') {
       event.dataTransfer.setData('application/reactflow-template', JSON.stringify(template));
       event.dataTransfer.effectAllowed = 'move';
     } else if (type === "flow") {
@@ -137,17 +160,27 @@ export const TemplatesSidebar = ({
       };
       event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
       event.dataTransfer.effectAllowed = 'move';
-      // onLoadTemplate(transferData);
-    }else if(type === "master"){
+
+    } else if (type === "master") {
       let transferData = {
         type,
         template,
-        isFromTemplate : true
+        isFromTemplate: true,
+        task_slug: template.slug
+      };
+      event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
+      event.dataTransfer.effectAllowed = 'move';
+    } else if (type === 'task') {
+      let transferData = {
+        type,
+        template,
+        task_slug: template.slug,
+        master_task_slug: template.master_task_slug
       };
       event.dataTransfer.setData('application/reactflow-template', JSON.stringify(transferData));
       event.dataTransfer.effectAllowed = 'move';
     }
-    
+
     setIsDragging(true);
   };
 
@@ -158,9 +191,9 @@ export const TemplatesSidebar = ({
   // Close child tasks dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (activeTaskId && 
-          !event.target.closest('.child-tasks-dropdown') && 
-          !event.target.closest('.eye-button')) {
+      if (activeTaskId &&
+        !event.target.closest('.child-tasks-dropdown') &&
+        !event.target.closest('.eye-button')) {
         setActiveTaskId(null);
         setChildTasksPosition(null);
       }
@@ -204,13 +237,13 @@ export const TemplatesSidebar = ({
             >
               <path d="M 21 3 C 11.621094 3 4 10.621094 4 20 C 4 29.378906 11.621094 37 21 37 C 24.710938 37 28.140625 35.804688 30.9375 33.78125 L 44.09375 46.90625 L 46.90625 44.09375 L 33.90625 31.0625 C 36.460938 28.085938 38 24.222656 38 20 C 38 10.621094 30.378906 3 21 3 Z M 21 5 C 29.296875 5 36 11.703125 36 20 C 36 28.296875 29.296875 35 21 35 C 12.703125 35 6 28.296875 6 20 C 6 11.703125 12.703125 5 21 5 Z" />
             </svg>
-            <div 
-              className="searchData" 
+            <div
+              className="searchData"
               style={{ visibility: processTemplateListDisplay }}
             >
               {filteredProcessTemplates.map((template) => {
-                const processSlug = template.nodes.find(node =>
-                  node.id.includes("process"))?.data.process_slug || "unknown process";
+                const processSlug = template.slug || template.name;
+                // node.id.includes("process"))?.data.process_slug || "unknown process";
 
                 return (
                   <div
@@ -220,7 +253,7 @@ export const TemplatesSidebar = ({
                     onDragStart={(e) => handleDragStart(e, template, 'flow')}
                     onDragEnd={handleDragEnd}
                   >
-                    <span>{processSlug}</span>
+                    <span className="dataName" title={processSlug}>{processSlug}</span>
                   </div>
                 );
               })}
@@ -251,8 +284,8 @@ export const TemplatesSidebar = ({
             >
               <path d="M 21 3 C 11.621094 3 4 10.621094 4 20 C 4 29.378906 11.621094 37 21 37 C 24.710938 37 28.140625 35.804688 30.9375 33.78125 L 44.09375 46.90625 L 46.90625 44.09375 L 33.90625 31.0625 C 36.460938 28.085938 38 24.222656 38 20 C 38 10.621094 30.378906 3 21 3 Z M 21 5 C 29.296875 5 36 11.703125 36 20 C 36 28.296875 29.296875 35 21 35 C 12.703125 35 6 28.296875 6 20 C 6 11.703125 12.703125 5 21 5 Z" />
             </svg>
-            <div 
-              className="searchData" 
+            <div
+              className="searchData"
               style={{ visibility: taskTemplateListDisplay }}
             >
               {filteredMasterTemplates.map((task) => (
@@ -260,10 +293,13 @@ export const TemplatesSidebar = ({
                   key={task.id}
                   className="dataItem"
                   draggable
-                  onDragStart={(e) => handleDragStart(e, task, 'task')}
+                  onDragStart={(e) => handleDragStart(e, task, 'master')}
                   onDragEnd={handleDragEnd}
                 >
-                  <span>{task.data.slug}</span>
+                  <span className="dataName" title={task.slug}>
+                    {task.slug}
+                  </span>
+
                   <IconButton
                     className="eye-button"
                     size="small"
@@ -285,8 +321,8 @@ export const TemplatesSidebar = ({
 
       {/* Child tasks dropdown with search */}
       {activeTaskId && childTasksPosition && (
-        <Paper 
-          className="child-tasks-dropdown" 
+        <Paper
+          className="child-tasks-dropdown"
           sx={{
             position: 'fixed',
             right: `${childTasksPosition.right}px`,
@@ -300,14 +336,12 @@ export const TemplatesSidebar = ({
             boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
           }}
         >
-          {taskTemplates.map(task => {
+          {masterTemplates.map(task => {
             if (task.id === activeTaskId) {
-              const filteredChildTasks = getFilteredChildTasks(task);
-
               return (
                 <React.Fragment key={`child-${task.id}`}>
-                  <Typography 
-                    variant="subtitle2" 
+                  <Typography
+                    variant="subtitle2"
                     sx={{
                       fontWeight: 'bold',
                       marginBottom: '10px',
@@ -315,7 +349,7 @@ export const TemplatesSidebar = ({
                       paddingBottom: '5px'
                     }}
                   >
-                    Child Tasks for {task.data.slug}
+                    Child Tasks for {task.slug}
                   </Typography>
 
                   {/* Child Task Search */}
@@ -348,8 +382,8 @@ export const TemplatesSidebar = ({
                       overflowY: 'auto'
                     }}
                   >
-                    {filteredChildTasks.length > 0 ? (
-                      filteredChildTasks.map(childTask => (
+                    {childTasks.length > 0 ? (
+                      childTasks?.map(childTask => (
                         <div
                           key={childTask.id}
                           style={{
@@ -362,15 +396,15 @@ export const TemplatesSidebar = ({
                             fontSize: '14px'
                           }}
                           draggable
-                          onDragStart={(e) => handleDragStart(e, childTask, 'childTask')}
+                          onDragStart={(e) => handleDragStart(e, childTask, 'task')}
                           onDragEnd={handleDragEnd}
                         >
-                          {childTask.data?.slug || childTask.name}
+                          {childTask.slug || childTask.name}
                         </div>
                       ))
                     ) : (
                       <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>
-                        {childTaskSearchTerm && task.childTasks?.length > 0 ?
+                        {childTaskSearchTerm && childTasks.length > 0 ?
                           "No matching child tasks found" :
                           "No child tasks available"}
                       </div>

@@ -8,6 +8,7 @@ import ReactFlow, {
   useEdgesState,
   ReactFlowProvider,
 } from 'reactflow';
+import axios from 'axios';
 import { Button } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -15,16 +16,16 @@ import SaveIcon from '@mui/icons-material/Save';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import TaskForm from './components/TaskForm';
 import ProcessForm from './components/ProcessForm';
-import { NodeDropdown, ProcessNode } from './components/NodeSidebar';
+import { NodeDropdown, Node } from './components/NodeSidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { useTemplateManagement } from './hooks/useTemplateManagement';
 import { ErrorModal } from './hooks/ErrorModal'
 import { ConfirmModal } from './hooks/ConfirmModal'
 
 const nodeTypes = {
-  process: ProcessNode,
-  task: ProcessNode,
-  master: ProcessNode,
+  process: Node,
+  task: Node,
+  master: Node,
 };
 
 function App() {
@@ -67,17 +68,143 @@ function App() {
   const onInit = (instance) => {
     reactFlowInstance.current = instance;
   };
+  
+  const onEdgeChange = useCallback((changes) => {
+    setEdges((eds) => {
+      const updatedEdges = applyEdgeChanges(changes, eds);
+  
+      // Handle edge removal
+      changes.forEach((change) => {
+        if (change.type === 'remove') {
+          const { source, target } = change;
+          console.log(change);
+
+          const sourceId = change.id.split('-')[1];
+          const targetId = change.id.split('-')[2];
+  
+          // Use reactFlowInstance to get the latest nodes
+          const currentNodes = reactFlowInstance.current.getNodes();
+          const sourceNode = currentNodes.find(node => node.id === `task-${sourceId}`);
+          const targetNode = currentNodes.find(node => node.id === `task-${targetId}`);
+  
+          // console.log("sourceNode", sourceNode);
+          // console.log("targetNode", targetNode);
+  
+          if (sourceNode && targetNode) {
+            // Remove the dependent task slug from the target node
+            const dependentTaskSlugs = targetNode.data.dependent_task_slug
+              ? targetNode.data.dependent_task_slug.split(",").filter(slug => slug !== sourceNode.data.slug)
+              : [];
+            targetNode.data.dependent_task_slug = dependentTaskSlugs.join(",");
+          }
+  
+          console.log("Updated targetNode", targetNode);
+  
+          // Update the nodes state
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === targetNode?.id ? { ...targetNode } : node
+            )
+          );
+        }
+      });
+  
+      return updatedEdges;
+    });
+  }, []);
 
   const onConnect = useCallback((params) => {
     setHasTemplateChanges(true);
-    // console.log(params.source);
+
+    // Use reactFlowInstance to get the latest nodes
+    const currentNodes = reactFlowInstance.current.getNodes();
+    const sourceNode = currentNodes.find(node => node.id === params.source);
+    const targetNode = currentNodes.find(node => node.id === params.target);
+
+
+    if(targetNode === sourceNode)
+      return;
+
+    if(sourceNode.type === 'process'){
+      if(targetNode.data.dependent_task_slug)
+         return;
+    }
+
+    if(sourceNode.type === 'task'){
+      targetNode.data.dependent_task_slug = targetNode.data.dependent_task_slug ? targetNode.data.dependent_task_slug + "," + sourceNode.data.slug : sourceNode.data.slug;
+    }
+    
     setEdges((eds) => addEdge(params, eds));
+  
+    // 
   }, []);
 
   const onNodeDoubleClick = useCallback((_, node) => {
     setSelectedNode(node);
     setShowTaskForm(true);
   }, []);
+  
+  const sortNodesByDependencies = (nodes) => {
+    const adjList = new Map();
+    const inDegree = new Map();
+    const sortedNodes = [];
+    const queue = [];
+  
+    const taskNodes = nodes.filter(node => node.type === 'task');
+  
+    // Step 1: Build the adjacency list and in-degree map
+    taskNodes.forEach((node) => {
+      const currentSlug = node.data.slug;
+      const dependentTaskSlugs = node.data.dependent_task_slug
+        ? node.data.dependent_task_slug.split(",").map(s => s.trim()).filter(Boolean)
+        : [];
+  
+      // Ensure current node exists in the maps
+      if (!adjList.has(currentSlug)) {
+        adjList.set(currentSlug, []);
+      }
+      if (!inDegree.has(currentSlug)) {
+        inDegree.set(currentSlug, 0);
+      }
+  
+      // Build reverse edge: dependency -> node
+      dependentTaskSlugs.forEach((depSlug) => {
+        if (!adjList.has(depSlug)) {
+          adjList.set(depSlug, []);
+        }
+        adjList.get(depSlug).push(currentSlug);
+  
+        // Increment in-degree for current node
+        inDegree.set(currentSlug, (inDegree.get(currentSlug) || 0) + 1);
+      });
+    });
+  
+    // Step 2: Find nodes with 0 in-degree
+    for (const [slug, degree] of inDegree.entries()) {
+      if (degree === 0) {
+        queue.push(slug);
+      }
+    }
+  
+    // Step 3: Topological sort (Kahn's algorithm)
+    while (queue.length > 0) {
+      const top = queue.shift();
+      sortedNodes.push(top);
+  
+      const neighbors = adjList.get(top) || [];
+      for (const neighbor of neighbors) {
+        inDegree.set(neighbor, inDegree.get(neighbor) - 1);
+        if (inDegree.get(neighbor) === 0) {
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    console.log(sortedNodes)
+  
+    return sortedNodes;
+  };
+  
 
   const handleSaveTemplate = async () => {
 
@@ -89,7 +216,7 @@ function App() {
       return;
     }
 
-    const taskNodes = nodes.filter(node => node.type === 'task');
+    var taskNodes = nodes.filter(node => node.type === 'task');
     const disconnectedTaskNodes = taskNodes.filter(taskNode => {
       return !edges.some(edge => edge.source === taskNode.id || edge.target === taskNode.id);
     });
@@ -103,51 +230,72 @@ function App() {
 
     const processTemplate = {
       name: processNode.data.name,
-      slug: processNode.data.process_slug,
-      input_format: JSON.parse(processNode.data.input_format),
-      http_headers: JSON.parse(processNode.data.header),
-      email_list: processNode.data.email_id,
+      slug: processNode.data.slug,
+      input_format: typeof processNode.data.input_format === 'string' ? JSON.parse(processNode.data.input_format) : processNode.data.input_format,
+      http_headers: typeof processNode.data.header === 'string' ? JSON.parse(processNode.data.header) : processNode.data.header,
+      email_list: processNode.data.email_list,
       description: processNode.data.description || "abcd",
     };
 
-    // console.log(processTemplate);
+    console.log(processTemplate);
+
+    // setNodes((nds)=>sortNodesByDependencies(nds));
+
+    // console.log(sortNodesByDependencies(nodes));
+    const sortedNodes = [];
+
+    for(let slug of sortNodesByDependencies(taskNodes)){
+      const node = nodes.find(node => node.data.slug === slug);
+      if(node){
+        sortedNodes.push(node);
+      }
+    }
+
+    taskNodes = sortedNodes;  
+    console.log(taskNodes);
 
     const csvHeaders = ["name", "slug", "description","help_text", "input_format", "output_format", "dependent_task_slug","host","bulk_input","input_http_method","api_endpoint", "api_timeout_in_ms","response_type","is_json_input_needed","task_type","is_active","is_optional","eta","service_id","email_list","delay_in_ms","master_task_template_slug","action"];
     
-    const csvRows = taskNodes.map((node)=>{
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return ""; // Handle null/undefined
+      const stringValue = value.toString();
+      return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes and wrap in quotes
+    };
+  
+    // Generate CSV rows
+    const csvRows = taskNodes.map((node) => {
       const data = node.data;
       return [
-        data.name,  
-        data.slug,
-        data.description,
-        data.help_text,
-        data.input_format,
-        data.output_format,
-        data.dependent_task_slug,
-        data.host || "",
-        data.bulk_input,
-        data.input_http_method,
-        data.api_endpoint,
-        data.api_timeout_in_ms,
-        data.responseType || "",
-        data.is_json_input_needed,
-        data.task_type || "",
-        data.is_active,
-        data.is_optional,
-        data.eta,
-        data.service_id,
-        data.email_list,
-        BigInt(data.delay_in_ms) || BigInt(100),
-        data.master_task_slug || data.slug,
-        data.action || "",
-      ]
+        escapeCsvValue(data.name),
+        escapeCsvValue(data.slug),
+        escapeCsvValue(data.description),
+        escapeCsvValue(data.help_text),
+        escapeCsvValue(data.input_format),
+        escapeCsvValue(data.output_format),
+        escapeCsvValue(data.dependent_task_slug),
+        escapeCsvValue(data.host || ""),
+        escapeCsvValue(data.bulk_input),
+        escapeCsvValue(data.input_http_method),
+        escapeCsvValue(data.api_endpoint),
+        escapeCsvValue(data.api_timeout_in_ms),
+        escapeCsvValue(data.response_type || data.responseType || ""),
+        escapeCsvValue(data.is_json_input_needed),
+        escapeCsvValue(data.task_type || ""),
+        escapeCsvValue(data.is_active),
+        escapeCsvValue(data.is_optional),
+        escapeCsvValue(data.eta),
+        escapeCsvValue(data.service_id),
+        escapeCsvValue(data.email_list),
+        escapeCsvValue(data.delay_in_ms !== undefined ? BigInt(data.delay_in_ms) : BigInt(0)),
+        escapeCsvValue(data.master_task_slug || ""),
+        escapeCsvValue(data.action || ""),
+      ];
     });
-
-    console.log(csvRows);
-    
+  
+    // Combine headers and rows into CSV content
     const csvContent = [
       csvHeaders.join(","), // Add headers
-      ...csvRows.map(row => row.map(value => `"${value}"`).join(",")) // Add rows
+      ...csvRows.map(row => row.join(",")) // Add rows
     ].join("\n");
 
 
@@ -171,6 +319,8 @@ function App() {
     formData.append("process_template", JSON.stringify(processTemplate));
     formData.append("task_templates", csvBlob, "task_nodes.csv");
     formData.append("owner_group_id", "518,626,767,967,969");
+    
+    
 
     // console.log(formData.get("process_template"));
     // console.log(formData.get("task_templates"));
@@ -184,12 +334,14 @@ function App() {
         },
       });
   
-      showConfirm("Template saved successfully!");
+      alert("Template saved successfully!");
       console.log("Response:", response.data);
     } catch (error) {
       console.error("Error saving template:", error);
-      showError(error.response?.data?.message || "An error occurred while saving the template.");
-    }
+      showError(
+        `${error.response?.data?.[0]?.slug || "Unknown"}<br/>${error.response?.data?.[0]?.reason || "Unknown error"}`
+      );
+          }
     
     
     // setNodes(updatedNodes);
@@ -328,6 +480,7 @@ function App() {
     if (templateData) {
       try {
         const data = JSON.parse(templateData);
+        console.log(data.type);
 
         if (data.type === 'flow' && nodes.length === 0) {
           setIsLoadedTemplate(true);
@@ -338,6 +491,7 @@ function App() {
           const response = await fetchProcessTemplate(data.template.id);
 
           const nodeData = response.task_templates;
+          console.log(nodeData);
           const childParentMapping = response.child_parent_mappings;
 
           // creating NODES
@@ -364,8 +518,7 @@ function App() {
 
           // Center the task nodes below the process node
           const startX = processNode.position.x - rowWidth / 2 + gridSpacing / 2; // Center the row horizontally
-          const startY = processNode.position.y + 300; // Start position for task nodes below the process node
-
+          const startY = processNode.position.y + 300; // Start position for task nodes below the process node     
           const taskNodes = nodeData.map((task, index) => ({
             id: `task-${task.id}`,
             type: 'task',
@@ -375,13 +528,34 @@ function App() {
             },
             data: {
               ...task,
+              input_format: typeof task.input_format === 'object' ? JSON.stringify(task.input_format) : task.input_format,
+              // header: typeof task.header === 'object' ? JSON.stringify(task.header) : task.header,
+              output_format: typeof task.output_format === 'object' ? JSON.stringify(task.output_format) : task.output_format,
+              eta:typeof task.eta === 'object' ? JSON.stringify(task.eta) : task.eta,
             },
           }));
 
 
           const newNodes = [processNode, ...taskNodes];
-          setNodes(newNodes);
 
+          newNodes.map((node) => {
+            if(node.type === 'task'){
+              const nodeId = node.id.replace('task-', '');
+              const dependentTaskSlugIds = childParentMapping[nodeId] || [];
+              const dependentTaskSlugs = dependentTaskSlugIds.map((id) => {
+                const taskNode = newNodes.find((n) => n.id === `task-${id}`);
+                return taskNode ? taskNode.data.slug : null;
+              });
+
+              console.log(dependentTaskSlugs);
+
+              node.data.dependent_task_slug = dependentTaskSlugs.join(",");
+            }
+          });
+          
+
+          setNodes(newNodes);         
+          
           
           // Creating EDGES
           const newEdges = [];
@@ -418,7 +592,26 @@ function App() {
             type: 'master',
             isFromTemplate: data.isFromTemplate,
             data: {
-               ...data.template
+               ...data.template,
+               master_task_slug:data.template.slug,
+            }
+          };
+          setNodes((nds) => nds.concat(newNode));
+        }else if(data.type === 'task') {
+          console.log(data);
+          setHasTemplateChanges(true);
+          const position = {
+            x: event.clientX - event.target.getBoundingClientRect().left,
+            y: event.clientY - event.target.getBoundingClientRect().top,
+          };
+
+          const newNode = {
+            id: `task-${Date.now()}`,
+            type: 'task',
+            position,
+            data: {
+              ...data.template,
+              master_task_slug:data.master_task_slug || "",
             }
           };
           setNodes((nds) => nds.concat(newNode));
@@ -456,6 +649,7 @@ function App() {
       setNodes((nds) => nds.concat(newNode));
     }
   }, [nodes, setNodes,setEdges]);
+  
 
   useEffect(() => {
     // const fetchTaskTemplates = async () => {
