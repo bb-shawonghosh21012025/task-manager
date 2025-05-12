@@ -7,6 +7,7 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   ReactFlowProvider,
+  applyEdgeChanges
 } from 'reactflow';
 import { ChevronLeft, ChevronRight, Save, Eraser, Egg } from 'lucide-react';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -145,45 +146,143 @@ function App() {
   const onInit = (instance) => {
     reactFlowInstance.current = instance;
   };
+  
+  const onEdgeChange = useCallback((changes) => {
+    setEdges((eds) => {
+      const updatedEdges = applyEdgeChanges(changes, eds);
+  
+      // Handle edge removal
+      changes.forEach((change) => {
+        if (change.type === 'remove') {
+          const { source, target } = change;
+          console.log(change);
+
+          const sourceId = change.id.split('-')[1];
+          const targetId = change.id.split('-')[2];
+  
+          // Use reactFlowInstance to get the latest nodes
+          const currentNodes = reactFlowInstance.current.getNodes();
+          const sourceNode = currentNodes.find(node => node.id === `task-${sourceId}`);
+          const targetNode = currentNodes.find(node => node.id === `task-${targetId}`);
+  
+          // console.log("sourceNode", sourceNode);
+          // console.log("targetNode", targetNode);
+  
+          if (sourceNode && targetNode) {
+            // Remove the dependent task slug from the target node
+            const dependentTaskSlugs = targetNode.data.dependent_task_slug
+              ? targetNode.data.dependent_task_slug.split(",").filter(slug => slug !== sourceNode.data.slug)
+              : [];
+            targetNode.data.dependent_task_slug = dependentTaskSlugs.join(",");
+          }
+  
+          console.log("Updated targetNode", targetNode);
+  
+          // Update the nodes state
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === targetNode?.id ? { ...targetNode } : node
+            )
+          );
+        }
+      });
+  
+      return updatedEdges;
+    });
+  }, []);
 
   const onConnect = useCallback((params) => {
     setHasTemplateChanges(true);
 
-    // const sourceNode = nodes.find(node => node.id === params.source);
-    // const targetNode = nodes.find(node => node.id === params.target);
+    // Use reactFlowInstance to get the latest nodes
+    const currentNodes = reactFlowInstance.current.getNodes();
+    const sourceNode = currentNodes.find(node => node.id === params.source);
+    const targetNode = currentNodes.find(node => node.id === params.target);
 
-    // console.log(sourceNode, targetNode);  
-  
-    // if (!sourceNode || !targetNode) {
-    //   console.error("Source or target node not found");
-    //   return;
-    // }
-  
-    // if (sourceNode.type === 'task') {
-    //   setNodes((nds) =>
-    //     nds.map((node) =>
-    //       node.id === targetNode.id
-    //         ? {
-    //             ...node,
-    //             data: {
-    //               ...node.data,
-    //               dependent_task_slug: node.data.dependent_task_slug
-    //                 ? `${node.data.dependent_task_slug},${sourceNode.data.slug}`
-    //                 : sourceNode.data.slug,
-    //             },
-    //           }
-    //         : node
-    //     )
-    //   );
-    // }
 
+    if(targetNode === sourceNode)
+      return;
+
+    if(sourceNode.type === 'process'){
+      if(targetNode.data.dependent_task_slug)
+         return;
+    }
+
+    if(sourceNode.type === 'task'){
+      targetNode.data.dependent_task_slug = targetNode.data.dependent_task_slug ? targetNode.data.dependent_task_slug + "," + sourceNode.data.slug : sourceNode.data.slug;
+    }
+    
     setEdges((eds) => addEdge(params, eds));
+  
+    // 
   }, []);
 
   const onNodeDoubleClick = useCallback((_, node) => {
     setSelectedNode(node);
     setShowTaskForm(true);
   }, []);
+
+  const sortNodesByDependencies = (nodes) => {
+    const adjList = new Map();
+    const inDegree = new Map();
+    const sortedNodes = [];
+    const queue = [];
+  
+    const taskNodes = nodes.filter(node => node.type === 'task');
+  
+    // Step 1: Build the adjacency list and in-degree map
+    taskNodes.forEach((node) => {
+      const currentSlug = node.data.slug;
+      const dependentTaskSlugs = node.data.dependent_task_slug
+        ? node.data.dependent_task_slug.split(",").map(s => s.trim()).filter(Boolean)
+        : [];
+  
+      // Ensure current node exists in the maps
+      if (!adjList.has(currentSlug)) {
+        adjList.set(currentSlug, []);
+      }
+      if (!inDegree.has(currentSlug)) {
+        inDegree.set(currentSlug, 0);
+      }
+  
+      // Build reverse edge: dependency -> node
+      dependentTaskSlugs.forEach((depSlug) => {
+        if (!adjList.has(depSlug)) {
+          adjList.set(depSlug, []);
+        }
+        adjList.get(depSlug).push(currentSlug);
+  
+        // Increment in-degree for current node
+        inDegree.set(currentSlug, (inDegree.get(currentSlug) || 0) + 1);
+      });
+    });
+  
+    // Step 2: Find nodes with 0 in-degree
+    for (const [slug, degree] of inDegree.entries()) {
+      if (degree === 0) {
+        queue.push(slug);
+      }
+    }
+  
+    // Step 3: Topological sort (Kahn's algorithm)
+    while (queue.length > 0) {
+      const top = queue.shift();
+      sortedNodes.push(top);
+  
+      const neighbors = adjList.get(top) || [];
+      for (const neighbor of neighbors) {
+        inDegree.set(neighbor, inDegree.get(neighbor) - 1);
+        if (inDegree.get(neighbor) === 0) {
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    console.log(sortedNodes)
+  
+    return sortedNodes;
+  };
+  
 
   const handleSaveTemplate = async () => {
 
@@ -195,7 +294,7 @@ function App() {
       return;
     }
 
-    const taskNodes = nodes.filter(node => node.type === 'task');
+    var taskNodes = nodes.filter(node => node.type === 'task');
     const disconnectedTaskNodes = taskNodes.filter(taskNode => {
       return !edges.some(edge => edge.source === taskNode.id || edge.target === taskNode.id);
     });
@@ -217,6 +316,21 @@ function App() {
     };
 
     console.log(processTemplate);
+
+    // setNodes((nds)=>sortNodesByDependencies(nds));
+
+    // console.log(sortNodesByDependencies(nodes));
+    const sortedNodes = [];
+
+    for(let slug of sortNodesByDependencies(taskNodes)){
+      const node = nodes.find(node => node.data.slug === slug);
+      if(node){
+        sortedNodes.push(node);
+      }
+    }
+
+    taskNodes = sortedNodes;  
+    console.log(taskNodes);
 
     const csvHeaders = ["name", "slug", "description","help_text", "input_format", "output_format", "dependent_task_slug","host","bulk_input","input_http_method","api_endpoint", "api_timeout_in_ms","response_type","is_json_input_needed","task_type","is_active","is_optional","eta","service_id","email_list","delay_in_ms","master_task_template_slug","action"];
     
@@ -242,7 +356,7 @@ function App() {
         escapeCsvValue(data.input_http_method),
         escapeCsvValue(data.api_endpoint),
         escapeCsvValue(data.api_timeout_in_ms),
-        escapeCsvValue(data.response_type || ""),
+        escapeCsvValue(data.response_type || data.responseType || ""),
         escapeCsvValue(data.is_json_input_needed),
         escapeCsvValue(data.task_type || ""),
         escapeCsvValue(data.is_active),
@@ -323,6 +437,8 @@ function App() {
     formData.append("process_template", JSON.stringify(processTemplate));
     formData.append("task_templates", csvBlob, "task_nodes.csv");
     formData.append("owner_group_id", "518,626,767,967,969");
+    
+    
 
     // console.log(formData.get("process_template"));
     // console.log(formData.get("task_templates"));
@@ -484,6 +600,7 @@ function App() {
           const nodeData = response.task_templates;
           console.log(nodeData);
           const childParentMapping = response.child_parent_mappings;
+          
 
           // creating NODES
         
@@ -526,10 +643,28 @@ function App() {
               eta:typeof task.eta === 'object' ? JSON.stringify(task.eta) : task.eta,
             },
           }));
-
+          
 
           const newNodes = [processNode, ...taskNodes];
+
+          newNodes.map((node) => {
+            if(node.type === 'task'){
+              const nodeId = node.id.replace('task-', '');
+              const dependentTaskSlugIds = childParentMapping[nodeId] || [];
+              const dependentTaskSlugs = dependentTaskSlugIds.map((id) => {
+                const taskNode = newNodes.find((n) => n.id === `task-${id}`);
+                return taskNode ? taskNode.data.slug : null;
+              });
+
+              console.log(dependentTaskSlugs);
+
+              node.data.dependent_task_slug = dependentTaskSlugs.join(",");
+            }
+          });
+          
+
           setNodes(newNodes);
+
 
           
           // Creating EDGES
@@ -624,6 +759,7 @@ function App() {
       setNodes((nds) => nds.concat(newNode));
     }
   }, [nodes, setNodes,setEdges]);
+  
 
   useEffect(() => {
     // const fetchTaskTemplates = async () => {
@@ -666,9 +802,7 @@ function App() {
   const hasProcessNode = nodes.some(node => node.type === 'process');
   const isSaveEnabled = hasProcessNode && (!isLoadedTemplate || hasTemplateChanges);
 
-
-
-
+  
   return (
     <div style={styles.container}>
       <ReactFlowProvider>
@@ -692,7 +826,7 @@ function App() {
               edges={edges}
               onInit={onInit}
               onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
+              onEdgesChange={onEdgeChange}
               onConnect={onConnect}
               onNodeDoubleClick={onNodeDoubleClick}
               nodeTypes={nodeTypes}

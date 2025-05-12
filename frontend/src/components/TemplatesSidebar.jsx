@@ -98,7 +98,7 @@ export const TemplatesSidebar = ({
         }
       );
       setTemplates(response.data);
-      console.log(response.data);
+      // console.log(response.data);
     } catch{
       setIsLoading(false);
     }
