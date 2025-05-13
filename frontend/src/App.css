@@ -582,14 +582,70 @@ input[type="file"] {
   font-weight: bold;
   color: #888;
 }
-
 .searchInputs {
   display: flex;
   flex-direction: column;
   position: relative;
 }
+.searchInputs input{
 
-.searchInputs input {
+  background-color: white;
+  border:1px solid #500472;
+  border-radius: 2px;
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  font-size: 18px;
+  height: 30px;
+  width:300px;
+}
+.searchData{
+  /* margin-top: 15%; */
+  position: absolute;
+  /* left:3%; */
+  top: 100%;
+  max-width: fit-content;
+  max-height: 300px;
+  box-shadow: rgba(0,0,0,0.35) 0px 5px 15px;
+  overflow: hidden;
+  overflow-y:auto;
+}
+.searchData .dataItem{
+  width:300px;
+  height:30px;
+  display: flex;
+  align-items: center;
+  background-color:white;
+  border: 0.5px solid #500472;
+  color:black;
+}
+.searchData li{
+  margin-left:10px;
+}
+.search .searchIcon{
+ position:"relative";
+ margin-left: -2.3%;
+ width: 8%;
+ height: 8%; 
+}
+li:hover{
+  background-color: lightgrey;
+}
+.search-icon {
+  position: absolute;
+  margin-left:275px;
+  margin-bottom: 28px;
+  width: 25px;
+  height: 25px;
+  fill: black; /* Icon color */
+}
+
+.newsearchInputs {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.newsearchInputs input {
   background-color: white;
   border: 1px solid #500472;
   border-radius: 2px;
@@ -601,7 +657,7 @@ input[type="file"] {
   width: 200px;
 }
 
-.searchData {
+.newsearchData {
   visibility: visible;
   /* Or use 'hidden' / controlled via class toggling */
   position: absolute;
@@ -617,7 +673,7 @@ input[type="file"] {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.searchData .dataItem {
+.newsearchData .dataItem {
   position: relative;
   height: 30px;
   display: flex;
@@ -631,11 +687,11 @@ input[type="file"] {
   justify-content: space-between;
 }
 
-.searchData li {
+.newsearchData li {
   margin-left: 10px;
 }
 
-.searchData .dataItem .dataName {
+.newsearchData .dataItem .dataName {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -644,7 +700,7 @@ input[type="file"] {
 }
 
 
-.search .searchIcon {
+.newsearch .searchIcon {
   position: "relative";
   margin-left: -2.3%;
   width: 8%;
