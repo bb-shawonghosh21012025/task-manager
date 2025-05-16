@@ -176,7 +176,7 @@ function App() {
             targetNode.data.dependent_task_slug = dependentTaskSlugs.join(",");
           }
   
-          console.log("Updated targetNode", targetNode);
+          // console.log("Updated targetNode", targetNode);
   
           // Update the nodes state
           setNodes((nds) =>
@@ -305,6 +305,7 @@ function App() {
     }
 
     // console.log(processNode);
+    
 
     const processTemplate = {
       name: processNode.data.name,
@@ -432,11 +433,19 @@ function App() {
   link.click();
   document.body.removeChild(link);
 
-    // Prepare FormData
+    // Create the `position` object
+    const position = taskNodes.reduce((acc, node) => {
+      acc[node.data.slug] = node.position; // Use slug as the key and position as the value
+      return acc;
+    }, {});
+    console.log("Position object:", position);
+
     const formData = new FormData();
     formData.append("process_template", JSON.stringify(processTemplate));
     formData.append("task_templates", csvBlob, "task_nodes.csv");
     formData.append("owner_group_id", "518,626,767,967,969");
+    formData.append("position", JSON.stringify(position));
+    
     
     
 
@@ -456,7 +465,7 @@ function App() {
       console.log("Response:", response.data);
     } catch (error) {
       console.error("Error saving template:", error);
-      alert(error.response?.data?.message || "An error occurred while    saving the template.");
+      alert(error.response?.data?.message || "An error occurred while saving the template.");
     }
     
     
@@ -617,7 +626,7 @@ function App() {
           };
 
           // Calculate positions for task nodes in a grid layout
-          const gridSpacing = 200; // Spacing between nodes
+          const gridSpacing = 300; // Spacing between nodes
           const maxNodesPerRow = 5; // Maximum number of nodes per row
           const totalTaskNodes = nodeData.length; // Total number of task nodes
 
@@ -631,7 +640,8 @@ function App() {
           const taskNodes = nodeData.map((task, index) => ({
             id: `task-${task.id}`,
             type: 'task',
-            position: {
+            position: task.position ||
+            {
               x: startX + (index % maxNodesPerRow) * gridSpacing, // Arrange in rows of `maxNodesPerRow`
               y: startY + Math.floor(index / maxNodesPerRow) * gridSpacing, // Move to the next row after `maxNodesPerRow` nodes
             },
@@ -656,7 +666,7 @@ function App() {
                 return taskNode ? taskNode.data.slug : null;
               });
 
-              console.log(dependentTaskSlugs);
+              // console.log(dependentTaskSlugs);
 
               node.data.dependent_task_slug = dependentTaskSlugs.join(",");
             }
@@ -688,6 +698,16 @@ function App() {
           });
 
           setEdges((eds) => [...eds, ...newEdges]);
+
+
+          // const flowState = reactFlowInstance.toObject();
+          // console.log(flowState);
+          const flowState = {
+            nodes: newNodes,
+            edges: newEdges,
+          };
+          const flowStateString = JSON.stringify(flowState);  
+          console.log(flowStateString);
 
         } else if (data.type === 'master') {
           setHasTemplateChanges(true);
