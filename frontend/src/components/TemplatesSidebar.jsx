@@ -7,6 +7,7 @@ import {
 import axios from 'axios';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import CircularProgress from '@mui/material/CircularProgress';
 import '../App.css';
 
 export const TemplatesSidebar = ({
@@ -27,6 +28,7 @@ export const TemplatesSidebar = ({
   const [taskSearchTerm, setTaskSearchTerm] = useState('');
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [childTasksPosition, setChildTasksPosition] = useState(null);
+  const [loadingChildTaskId, setLoadingChildTaskId] = useState(null);
 
   // References for the search dropdowns
   const processTemplateRef = useRef(null);
@@ -93,7 +95,7 @@ export const TemplatesSidebar = ({
     try {
       const response = await axios.get('http://localhost:8011/bb2admin/v1/master-task-templates',
         {
-          headers : { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
         }
       );
       // console.log(response);
@@ -106,45 +108,40 @@ export const TemplatesSidebar = ({
   const toggleTaskExpansion = async (task, e) => {
     e.stopPropagation();
 
-    // Get position of the clicked task item
-    const rect = e.currentTarget.getBoundingClientRect();
-
-    // If this task is already active, close it
-    // console.log(task);
+    // If already open, just close
     if (activeTaskId === task.id) {
       setActiveTaskId(null);
       setChildTasksPosition(null);
       return;
     }
 
+    // Set loading for this task
+    setLoadingChildTaskId(task.id);
+
     // Calculate position for the child tasks dropdown
+    const rect = e.currentTarget.getBoundingClientRect();
     setChildTasksPosition({
       top: rect.top,
       right: window.innerWidth - rect.left + 10
     });
 
-
     try {
       const response = await axios.get(`http://localhost:8011/bb2admin/v2/task-template/${task.id}`,
         {
-          headers : { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
         }
       );
 
       setChildTasks([]);
-
       response.data.map((data) => {
         setChildTasks((prev) => [...prev, { ...data, master_task_slug: task.slug }]);
-      })
-
-      // setChildTasks([{...response.data,master_task_slug:task.slug}]);
-      // console.log("child tasks", response.data);
-      // console.log(childTasks)
+      });
     } catch (error) {
       console.log("Error fetching child tasks", error);
-
     }
+
     setActiveTaskId(task.id);
+    setLoadingChildTaskId(null); // Done loading
   };
 
   const handleDragStart = (event, template, type) => {
@@ -303,10 +300,12 @@ export const TemplatesSidebar = ({
                   <IconButton
                     className="eye-button"
                     size="small"
-                    onClick={(e) => toggleTaskExpansion(task.id, e)}
+                    onClick={(e) => toggleTaskExpansion(task, e)}
                     sx={{ color: 'grey' }}
                   >
-                    {activeTaskId === task.id ? (
+                    {loadingChildTaskId === task.id ? (
+                      <CircularProgress size={18} />
+                    ) : activeTaskId === task.id ? (
                       <VisibilityOffIcon fontSize="small" />
                     ) : (
                       <VisibilityIcon fontSize="small" />
@@ -351,31 +350,6 @@ export const TemplatesSidebar = ({
                   >
                     Child Tasks for {task.slug}
                   </Typography>
-
-                  {/* Child Task Search */}
-                  <div className="newsearch">
-                    <div className="newsearchInputs">
-                      <input
-                        ref={childTaskSearchRef}
-                        type="text"
-                        value={childTaskSearchTerm}
-                        onChange={(e) => setChildTaskSearchTerm(e.target.value)}
-                        placeholder="Search child tasks..."
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ marginBottom: '10px' }}
-                      />
-                      <svg
-                        className="search-icon"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 50 50"
-                        width="16px"
-                        height="16px"
-                      >
-                        <path d="M 21 3 C 11.621094 3 4 10.621094 4 20 C 4 29.378906 11.621094 37 21 37 C 24.710938 37 28.140625 35.804688 30.9375 33.78125 L 44.09375 46.90625 L 46.90625 44.09375 L 33.90625 31.0625 C 36.460938 28.085938 38 24.222656 38 20 C 38 10.621094 30.378906 3 21 3 Z M 21 5 C 29.296875 5 36 11.703125 36 20 C 36 28.296875 29.296875 35 21 35 C 12.703125 35 6 28.296875 6 20 C 6 11.703125 12.703125 5 21 5 Z" />
-                      </svg>
-                    </div>
-                  </div>
-
                   <div
                     style={{
                       maxHeight: '200px',
@@ -404,7 +378,7 @@ export const TemplatesSidebar = ({
                       ))
                     ) : (
                       <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>
-                        {childTaskSearchTerm && childTasks.length > 0 ?
+                        {childTasks.length > 0 ?
                           "No matching child tasks found" :
                           "No child tasks available"}
                       </div>

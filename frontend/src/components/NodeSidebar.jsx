@@ -49,21 +49,21 @@ export const NodeDropdown = () => {
             onDragStart={(e) => onDragStart(e, 'process')}
             draggable
           >
-            Process
+            Process Template
           </div>
           <div
             className="node-item process-node"
             onDragStart={(e) => onDragStart(e, 'master')}
             draggable
           >
-            Master
+            Master Template
           </div>
           <div
             className="node-item process-node"
             onDragStart={(e) => onDragStart(e, 'task')}
             draggable
           >
-            Task
+            Task Template
           </div>
         </div>
       )}
@@ -71,9 +71,9 @@ export const NodeDropdown = () => {
   );
 };
 
-export const Node = memo(({ data, type }) => {
+export const Node = memo(({ data, type, selected }) => {
   return (
-    <div className={`node ${type}-node`}>
+    <div className={`node ${type}-node${selected && type === 'task' ? ' node-selected' : ''}`}>
       {type === 'task' && (
         <Handle
           type="target"

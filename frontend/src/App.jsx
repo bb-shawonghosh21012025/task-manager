@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -12,8 +12,10 @@ import axios from 'axios';
 import { Button } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import RestoreIcon from '@mui/icons-material/Restore';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import CircularProgress from '@mui/material/CircularProgress';
 import TaskForm from './components/TaskForm';
 import ProcessForm from './components/ProcessForm';
 import { NodeDropdown, Node } from './components/NodeSidebar';
@@ -40,6 +42,9 @@ function App() {
   const [error, setError] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [initialNodePositions, setInitialNodePositions] = useState({});
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [isDraggingProcessTemplate, setIsDraggingProcessTemplate] = useState(false);
 
   const showError = (message) => {
     setError(message);
@@ -68,11 +73,11 @@ function App() {
   const onInit = (instance) => {
     reactFlowInstance.current = instance;
   };
-  
+
   const onEdgeChange = useCallback((changes) => {
     setEdges((eds) => {
       const updatedEdges = applyEdgeChanges(changes, eds);
-  
+
       // Handle edge removal
       changes.forEach((change) => {
         if (change.type === 'remove') {
@@ -81,15 +86,15 @@ function App() {
 
           const sourceId = change.id.split('-')[1];
           const targetId = change.id.split('-')[2];
-  
+
           // Use reactFlowInstance to get the latest nodes
           const currentNodes = reactFlowInstance.current.getNodes();
           const sourceNode = currentNodes.find(node => node.id === `task-${sourceId}`);
           const targetNode = currentNodes.find(node => node.id === `task-${targetId}`);
-  
+
           // console.log("sourceNode", sourceNode);
           // console.log("targetNode", targetNode);
-  
+
           if (sourceNode && targetNode) {
             // Remove the dependent task slug from the target node
             const dependentTaskSlugs = targetNode.data.dependent_task_slug
@@ -97,9 +102,9 @@ function App() {
               : [];
             targetNode.data.dependent_task_slug = dependentTaskSlugs.join(",");
           }
-  
+
           console.log("Updated targetNode", targetNode);
-  
+
           // Update the nodes state
           setNodes((nds) =>
             nds.map((node) =>
@@ -108,7 +113,7 @@ function App() {
           );
         }
       });
-  
+
       return updatedEdges;
     });
   }, []);
@@ -122,43 +127,57 @@ function App() {
     const targetNode = currentNodes.find(node => node.id === params.target);
 
 
-    if(targetNode === sourceNode)
+    if (targetNode === sourceNode)
       return;
 
-    if(sourceNode.type === 'process'){
-      if(targetNode.data.dependent_task_slug)
-         return;
+    if (sourceNode.type === 'process') {
+      if (targetNode.data.dependent_task_slug)
+        return;
     }
 
-    if(sourceNode.type === 'task'){
+    if (sourceNode.type === 'task') {
       targetNode.data.dependent_task_slug = targetNode.data.dependent_task_slug ? targetNode.data.dependent_task_slug + "," + sourceNode.data.slug : sourceNode.data.slug;
     }
-    
+
     setEdges((eds) => addEdge(params, eds));
-  
+
     // 
   }, []);
+
+  const handleNodeClick = useCallback((event, node) => {
+    setSelectedNode(node);
+    setSelectedNodeId(node.id);
+  }, []);
+
+  const highlightedEdges = useMemo(() =>
+    edges.map(edge => ({
+      ...edge,
+      style: (edge.source === selectedNodeId || edge.target === selectedNodeId)
+        ? { ...edge.style, stroke: 'blue', strokeWidth: 3 }
+        : edge.style,
+      // animated: edge.source === selectedNodeId || edge.target === selectedNodeId,
+    })), [edges, selectedNodeId]);
 
   const onNodeDoubleClick = useCallback((_, node) => {
     setSelectedNode(node);
     setShowTaskForm(true);
   }, []);
-  
+
   const sortNodesByDependencies = (nodes) => {
     const adjList = new Map();
     const inDegree = new Map();
     const sortedNodes = [];
     const queue = [];
-  
+
     const taskNodes = nodes.filter(node => node.type === 'task');
-  
+
     // Step 1: Build the adjacency list and in-degree map
     taskNodes.forEach((node) => {
       const currentSlug = node.data.slug;
       const dependentTaskSlugs = node.data.dependent_task_slug
         ? node.data.dependent_task_slug.split(",").map(s => s.trim()).filter(Boolean)
         : [];
-  
+
       // Ensure current node exists in the maps
       if (!adjList.has(currentSlug)) {
         adjList.set(currentSlug, []);
@@ -166,31 +185,31 @@ function App() {
       if (!inDegree.has(currentSlug)) {
         inDegree.set(currentSlug, 0);
       }
-  
+
       // Build reverse edge: dependency -> node
       dependentTaskSlugs.forEach((depSlug) => {
         if (!adjList.has(depSlug)) {
           adjList.set(depSlug, []);
         }
         adjList.get(depSlug).push(currentSlug);
-  
+
         // Increment in-degree for current node
         inDegree.set(currentSlug, (inDegree.get(currentSlug) || 0) + 1);
       });
     });
-  
+
     // Step 2: Find nodes with 0 in-degree
     for (const [slug, degree] of inDegree.entries()) {
       if (degree === 0) {
         queue.push(slug);
       }
     }
-  
+
     // Step 3: Topological sort (Kahn's algorithm)
     while (queue.length > 0) {
       const top = queue.shift();
       sortedNodes.push(top);
-  
+
       const neighbors = adjList.get(top) || [];
       for (const neighbor of neighbors) {
         inDegree.set(neighbor, inDegree.get(neighbor) - 1);
@@ -201,10 +220,10 @@ function App() {
     }
 
     console.log(sortedNodes)
-  
+
     return sortedNodes;
   };
-  
+
 
   const handleSaveTemplate = async () => {
 
@@ -244,24 +263,24 @@ function App() {
     // console.log(sortNodesByDependencies(nodes));
     const sortedNodes = [];
 
-    for(let slug of sortNodesByDependencies(taskNodes)){
+    for (let slug of sortNodesByDependencies(taskNodes)) {
       const node = nodes.find(node => node.data.slug === slug);
-      if(node){
+      if (node) {
         sortedNodes.push(node);
       }
     }
 
-    taskNodes = sortedNodes;  
+    taskNodes = sortedNodes;
     console.log(taskNodes);
 
-    const csvHeaders = ["name", "slug", "description","help_text", "input_format", "output_format", "dependent_task_slug","host","bulk_input","input_http_method","api_endpoint", "api_timeout_in_ms","response_type","is_json_input_needed","task_type","is_active","is_optional","eta","service_id","email_list","delay_in_ms","master_task_template_slug","action"];
-    
+    const csvHeaders = ["name", "slug", "description", "help_text", "input_format", "output_format", "dependent_task_slug", "host", "bulk_input", "input_http_method", "api_endpoint", "api_timeout_in_ms", "response_type", "is_json_input_needed", "task_type", "is_active", "is_optional", "eta", "service_id", "email_list", "delay_in_ms", "master_task_template_slug", "action"];
+
     const escapeCsvValue = (value) => {
       if (value === null || value === undefined) return ""; // Handle null/undefined
       const stringValue = value.toString();
       return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes and wrap in quotes
     };
-  
+
     // Generate CSV rows
     const csvRows = taskNodes.map((node) => {
       const data = node.data;
@@ -291,7 +310,7 @@ function App() {
         escapeCsvValue(data.action || ""),
       ];
     });
-  
+
     // Combine headers and rows into CSV content
     const csvContent = [
       csvHeaders.join(","), // Add headers
@@ -303,24 +322,24 @@ function App() {
     const csvBlob = new Blob([csvContent], { type: "text/csv" });
 
     // Generate a URL for the CSV file
-  const csvUrl = URL.createObjectURL(csvBlob);
-  console.log("CSV Download URL:", csvUrl); // Print the URL to the console
+    const csvUrl = URL.createObjectURL(csvBlob);
+    console.log("CSV Download URL:", csvUrl); // Print the URL to the console
 
-  // Optionally, trigger a download
-  const link = document.createElement("a");
-  link.href = csvUrl;
-  link.setAttribute("download", "task_nodes.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    // Optionally, trigger a download
+    const link = document.createElement("a");
+    link.href = csvUrl;
+    link.setAttribute("download", "task_nodes.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
     // Prepare FormData
     const formData = new FormData();
     formData.append("process_template", JSON.stringify(processTemplate));
     formData.append("task_templates", csvBlob, "task_nodes.csv");
     formData.append("owner_group_id", "518,626,767,967,969");
-    
-    
+
+
 
     // console.log(formData.get("process_template"));
     // console.log(formData.get("task_templates"));
@@ -333,7 +352,7 @@ function App() {
           "bb-decoded-uid": localStorage.getItem("bb-decoded-uid"),
         },
       });
-  
+
       alert("Template saved successfully!");
       console.log("Response:", response.data);
     } catch (error) {
@@ -341,9 +360,9 @@ function App() {
       showError(
         `${error.response?.data?.[0]?.slug || "Unknown"}<br/>${error.response?.data?.[0]?.reason || "Unknown error"}`
       );
-          }
-    
-    
+    }
+
+
     // setNodes(updatedNodes);
     // setEdges(updatedEdges);
 
@@ -352,15 +371,24 @@ function App() {
     // });;
     setIsLoadedTemplate(false);
     setHasTemplateChanges(false);
+    setRightSidebarOpen(false);
   };
 
   const handleLoadTemplate = (template) => {
     if (!reactFlowInstance.current) return;
     loadTemplate(reactFlowInstance.current, template);
-    console.log(template);
+    // Save initial positions
+    const loadedNodes = reactFlowInstance.current.getNodes();
+    const positions = {};
+    loadedNodes.forEach(node => {
+      positions[node.id] = { ...node.position };
+    });
+    setInitialNodePositions(positions);
+
     setIsLoadedTemplate(true);
     setHasTemplateChanges(false);
   };
+
 
   const handleSaveTaskTemplate = useCallback(async (taskNode, isUpdate = false) => {
     const template = {
@@ -415,7 +443,7 @@ function App() {
 
   const handleNodeUpdate = useCallback((nodeData, saveAsTemplate = false) => {
     setHasTemplateChanges(true);
-  
+
     // console.log(nodeData);
 
     setNodes(nds =>
@@ -450,19 +478,20 @@ function App() {
     setShowTaskForm(false);
   }, [selectedNode, setNodes, setTaskTemplates]);
 
-  const fetchProcessTemplate = async (id) =>{
-     try {
+  const fetchProcessTemplate = async (id) => {
+    try {
       const response = await axios.get(`http://localhost:8011/bb2admin/v2/process-template/${id}`,
         {
-          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid")}
+          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
         }
       );
+      setIsDraggingProcessTemplate(false);
       console.log(response);
       return response.data;
 
-     } catch (error) {
-      console.log("error in fetchProcessTemplate",error);
-     }
+    } catch (error) {
+      console.log("error in fetchProcessTemplate", error);
+    }
   }
 
   const onDragOver = useCallback((event) => {
@@ -487,7 +516,7 @@ function App() {
           setHasTemplateChanges(false);
           // console.log(data);
 
-
+          setIsDraggingProcessTemplate(true);
           const response = await fetchProcessTemplate(data.template.id);
 
           const nodeData = response.task_templates;
@@ -495,7 +524,7 @@ function App() {
           const childParentMapping = response.child_parent_mappings;
 
           // creating NODES
-        
+
           const processNode = {
             id: `process-${data.template.id}`,
             type: 'process',
@@ -503,13 +532,13 @@ function App() {
               x: event.clientX - event.target.getBoundingClientRect().left,
               y: event.clientY - event.target.getBoundingClientRect().top,
             },
-            data :{
+            data: {
               ...data.template
             }
           };
 
           // Calculate positions for task nodes in a grid layout
-          const gridSpacing = 200; // Spacing between nodes
+          const gridSpacing = 300; // Spacing between nodes
           const maxNodesPerRow = 5; // Maximum number of nodes per row
           const totalTaskNodes = nodeData.length; // Total number of task nodes
 
@@ -531,7 +560,7 @@ function App() {
               input_format: typeof task.input_format === 'object' ? JSON.stringify(task.input_format) : task.input_format,
               // header: typeof task.header === 'object' ? JSON.stringify(task.header) : task.header,
               output_format: typeof task.output_format === 'object' ? JSON.stringify(task.output_format) : task.output_format,
-              eta:typeof task.eta === 'object' ? JSON.stringify(task.eta) : task.eta,
+              eta: typeof task.eta === 'object' ? JSON.stringify(task.eta) : task.eta,
             },
           }));
 
@@ -539,7 +568,7 @@ function App() {
           const newNodes = [processNode, ...taskNodes];
 
           newNodes.map((node) => {
-            if(node.type === 'task'){
+            if (node.type === 'task') {
               const nodeId = node.id.replace('task-', '');
               const dependentTaskSlugIds = childParentMapping[nodeId] || [];
               const dependentTaskSlugs = dependentTaskSlugIds.map((id) => {
@@ -552,29 +581,35 @@ function App() {
               node.data.dependent_task_slug = dependentTaskSlugs.join(",");
             }
           });
-          
 
-          setNodes(newNodes);         
-          
-          
+
+          setNodes(newNodes);
+
+          const positions = {};
+          newNodes.forEach(node => {
+            positions[node.id] = { ...node.position };
+          });
+          setInitialNodePositions(positions);
+
+
           // Creating EDGES
           const newEdges = [];
-          Object.keys(childParentMapping).map((key)=>{
-             childParentMapping[key].map((childId)=>{
-              if(childId === 0){
-                 newEdges.push({
+          Object.keys(childParentMapping).map((key) => {
+            childParentMapping[key].map((childId) => {
+              if (childId === 0) {
+                newEdges.push({
                   id: `edge-${processNode.id}-${key}`,
                   source: processNode.id,
                   target: `task-${key}`,
-                 });
-              }else{
+                });
+              } else {
                 newEdges.push({
-                  id:`edge-${childId}-${key}`,
-                  source:`task-${childId}`,
-                  target:`task-${key}`
+                  id: `edge-${childId}-${key}`,
+                  source: `task-${childId}`,
+                  target: `task-${key}`
                 });
               }
-             });
+            });
           });
 
           setEdges((eds) => [...eds, ...newEdges]);
@@ -592,12 +627,12 @@ function App() {
             type: 'master',
             isFromTemplate: data.isFromTemplate,
             data: {
-               ...data.template,
-               master_task_slug:data.template.slug,
+              ...data.template,
+              master_task_slug: data.template.slug,
             }
           };
           setNodes((nds) => nds.concat(newNode));
-        }else if(data.type === 'task') {
+        } else if (data.type === 'task') {
           console.log(data);
           setHasTemplateChanges(true);
           const position = {
@@ -611,7 +646,7 @@ function App() {
             position,
             data: {
               ...data.template,
-              master_task_slug:data.master_task_slug || "",
+              master_task_slug: data.master_task_slug || "",
             }
           };
           setNodes((nds) => nds.concat(newNode));
@@ -620,7 +655,7 @@ function App() {
       } catch (error) {
         console.error('Error parsing template data:', error);
       }
-    }else if (type) {
+    } else if (type) {
       setHasTemplateChanges(true);
       if (type === 'process' && nodes.some(node => node.type === 'process')) {
         showError('Only one process node is allowed');
@@ -648,8 +683,8 @@ function App() {
 
       setNodes((nds) => nds.concat(newNode));
     }
-  }, [nodes, setNodes,setEdges]);
-  
+  }, [nodes, setNodes, setEdges]);
+
 
   useEffect(() => {
     // const fetchTaskTemplates = async () => {
@@ -699,23 +734,67 @@ function App() {
       <ReactFlowProvider>
         <div ref={reactFlowWrapper} className="container">
           <div className="flow-container">
+            {isDraggingProcessTemplate && (
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  background: 'rgba(255,255,255,0.5)',
+                  zIndex: 9999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <CircularProgress size={80} />
+              </div>
+            )}
             <ReactFlow
               nodes={nodes}
-              edges={edges}
+              edges={selectedNodeId ? highlightedEdges : edges}
               onInit={onInit}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onNodeClick={handleNodeClick}
               onNodeDoubleClick={onNodeDoubleClick}
               nodeTypes={nodeTypes}
               onDragOver={onDragOver}
               onDrop={onDrop}
               fitView
+              onPaneClick={() => {
+                setSelectedNode(null);
+                setSelectedNodeId(null);
+              }}
             >
               <Background />
               <Controls />
               <MiniMap />
               <NodeDropdown />
+              <Button
+                variant="contained"
+                startIcon={<RestoreIcon style={{ fontSize: 16 }} />}
+                onClick={() => {
+                  setNodes(nds =>
+                    nds.map(node => ({
+                      ...node,
+                      position: initialNodePositions[node.id] || node.position
+                    }))
+                  );
+                }}
+                disabled={Object.keys(initialNodePositions).length === 0}
+                sx={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '375px',
+                  background: '#500472',
+                  fontWeight: 'bold',
+                  cursor: Object.keys(initialNodePositions).length > 0 ? 'pointer' : 'not-allowed',
+                  zIndex: 5,
+                }}
+              >
+                Reset
+              </Button>
               <Button
                 variant="contained"
                 startIcon={<DeleteSweepIcon style={{ fontSize: 16 }} />}
@@ -798,6 +877,8 @@ function App() {
                 onDeleteTaskTemplate={handleDeleteTaskTemplate}
                 existingNodes={nodes}
                 onLoadTemplate={handleLoadTemplate}
+                setIsDraggingProcessTemplate={setIsDraggingProcessTemplate}
+
               />
             )}
           </div>

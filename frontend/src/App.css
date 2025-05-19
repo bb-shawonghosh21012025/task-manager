@@ -924,6 +924,12 @@ tr:nth-child(even) {
   min-width: 150px;
 }
 
+.node-selected {
+  border: 3px solid #500472 !important;
+  background: white !important;
+  transition: border 0.2s, background 0.2s;
+}
+
 .process-node {
   border-color: #500472;
   background: #500472;

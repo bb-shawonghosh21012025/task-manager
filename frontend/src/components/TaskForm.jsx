@@ -31,7 +31,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
     input_http_method: node.data.input_http_method || '',
     api_endpoint: node.data.api_endpoint || '',
     api_timeout_in_ms: node.data.api_timeout_in_ms || 30000,
-    response_type: node.data.response_type || '',
+    response_type: node.data.response_type || '' ||node.data.responseType,
     is_json_input_needed: node.data.is_json_input_needed || false,
     task_type: node.data.task_type || '',
     is_active: node.data.is_active || true,
