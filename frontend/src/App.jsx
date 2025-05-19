@@ -11,15 +11,19 @@ import ReactFlow, {
 } from 'reactflow';
 import { ChevronLeft, ChevronRight, Save, Eraser, Egg } from 'lucide-react';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import { Button } from '@mui/material';
+import RestoreIcon from '@mui/icons-material/Restore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'; // or DeleteSweepIcon
 import TaskForm from './components/TaskForm';
 import ProcessForm from './components/ProcessForm';
-import { Sidebar, ProcessNode } from './components/NodeSidebar';
+// import { Sidebar, ProcessNode } from './components/NodeSidebar';
+import { NodeDropdown, Node } from './components/NodeSidebar';
 import { TemplatesSidebar } from './components/TemplatesSidebar';
 import { useTemplateManagement } from './hooks/useTemplateManagement';
 import { ErrorModal } from './hooks/ErrorModal'
+import { ConfirmModal } from './hooks/ConfirmModal'
 import axios from 'axios';
 
 const nodeTypes = {
@@ -118,6 +122,10 @@ function App() {
   const [hasSaved, setHasSaved] = useState(false);
   const [error, setError] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [isDraggingProcessTemplate, setIsDraggingProcessTemplate] = useState(false);
+  const [initialNodePositions, setInitialNodePositions] = useState({});
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const showError = (message) => {
     setError(message);
@@ -190,6 +198,11 @@ function App() {
       return updatedEdges;
     });
   }, []);
+  
+  const handleNodeClick = useCallback((event, node) => {
+    setSelectedNode(node);
+    setSelectedNodeId(node.id);
+  }, []);
 
   const onConnect = useCallback((params) => {
     setHasTemplateChanges(true);
@@ -221,6 +234,18 @@ function App() {
     setSelectedNode(node);
     setShowTaskForm(true);
   }, []);
+
+  const confirmClear = () => {
+    setNodes([]);
+    setEdges([]);
+    setIsLoadedTemplate(false);
+    setHasTemplateChanges(false);
+    setShowConfirm(false);  // Close the confirmation modal
+  };
+
+  const cancelClear = () => {
+    setShowConfirm(false);  // Close the confirmation modal without action
+  };
 
   const sortNodesByDependencies = (nodes) => {
     const adjList = new Map();
@@ -438,6 +463,10 @@ function App() {
       acc[node.data.slug] = node.position; // Use slug as the key and position as the value
       return acc;
     }, {});
+
+    if (processNode) {
+      position[processNode.data.slug] = processNode.position;
+    }
     console.log("Position object:", position);
 
     const formData = new FormData();
@@ -616,7 +645,8 @@ function App() {
           const processNode = {
             id: `process-${data.template.id}`,
             type: 'process',
-            position: {
+            position: response.process_template.position ||
+            {
               x: event.clientX - event.target.getBoundingClientRect().left,
               y: event.clientY - event.target.getBoundingClientRect().top,
             },
@@ -779,6 +809,15 @@ function App() {
       setNodes((nds) => nds.concat(newNode));
     }
   }, [nodes, setNodes,setEdges]);
+
+  const highlightedEdges = useMemo(() =>
+    edges.map(edge => ({
+      ...edge,
+      style: (edge.source === selectedNodeId || edge.target === selectedNodeId)
+        ? { ...edge.style, stroke: 'blue', strokeWidth: 3 }
+        : edge.style,
+      // animated: edge.source === selectedNodeId || edge.target === selectedNodeId,
+    })), [edges, selectedNodeId]);
   
 
   useEffect(() => {
@@ -825,7 +864,7 @@ function App() {
   
   return (
     <div style={styles.container}>
-      <ReactFlowProvider>
+    <ReactFlowProvider>
         <div ref={reactFlowWrapper} style={styles.container}>
           <div style={{
             ...styles.sidebar,
@@ -838,34 +877,39 @@ function App() {
               {leftSidebarOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
             </button>
             {leftSidebarOpen && <Sidebar />}
-          </div>
+            </div>
 
           <div style={styles.flowContainer}>
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onInit={onInit}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgeChange}
-              onConnect={onConnect}
-              onNodeDoubleClick={onNodeDoubleClick}
-              nodeTypes={nodeTypes}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              fitView
-            >
-              <Background />
-              <Controls />
-              <MiniMap />
+          <ReactFlow
+            nodes={nodes}
+            edges={selectedNodeId ? highlightedEdges : edges}
+            onInit={onInit}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={onNodeDoubleClick}
+            nodeTypes={nodeTypes}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            fitView
+            onPaneClick={() => {
+              setSelectedNode(null);
+              setSelectedNodeId(null);
+            }}
+          >
+            <Background />
+            <Controls />
+            <MiniMap />
 
               <button
                 style={{
                   ...styles.clearButton,
                   opacity: nodes.length > 0 ? 1 : 0.5,
-                  cursor: nodes.length > 0 ? 'pointer' : 'not-allowed'
-                }}
-                onClick={handleClearCanvas}
-                disabled={nodes.length === 0}
+                  cursor: nodes.length > 0 ? 'pointer' : 'nogt-allowed'
+              }}
+              onClick={handleClearCanvas}
+              disabled={nodes.length === 0}
               >
                 <DeleteSweepIcon style={{ fontSize: 16 }} />
                 <span>Clear Canvas</span>
@@ -877,40 +921,41 @@ function App() {
                   opacity: (hasProcessNode && (!isLoadedTemplate || hasTemplateChanges) && (!hasSaved | hasTemplateChanges)) ? 1 : 0.5,
                   cursor: (hasProcessNode && (!isLoadedTemplate || hasTemplateChanges) && (!hasSaved | hasTemplateChanges)) ? 'pointer' : 'not-allowed'
                 }}
-                onClick={handleSaveTemplate}
-                disabled={!hasProcessNode || (isLoadedTemplate && !hasTemplateChanges) || (hasSaved && !hasTemplateChanges)}
+              onClick={handleSaveTemplate}
+              disabled={!hasProcessNode || (isLoadedTemplate && !hasTemplateChanges) || (hasSaved && !hasTemplateChanges)}
               >
                 <SaveIcon style={{ fontSize: 16 }} />
                 <span>Save Template</span>
               </button>
 
 
-            </ReactFlow>
+          </ReactFlow>
 
-            {showTaskForm && selectedNode && (
-              selectedNode.type === 'process' ? (
-                <ProcessForm
-                  node={selectedNode}
-                  onClose={() => setShowTaskForm(false)}
-                  onSave={handleNodeUpdate}
-                />
-              ) : (
-                <TaskForm
-                  node={selectedNode}
-                  onClose={() => setShowTaskForm(false)}
-                  onSave={handleNodeUpdate}
-                  onSaveTemplate={handleSaveTaskTemplate}
-                  onDeleteTemplate={handleDeleteTaskTemplate}
-                />
-              )
-            )}
-          </div>
-          <ErrorModal
-            isOpen={isOpen}
-            title="Error"
-            message={error}
-            onClose={handleClose}
-          />
+          {showTaskForm && selectedNode && (
+            selectedNode.type === 'process' ? (
+              <ProcessForm
+                node={selectedNode}
+                onClose={() => setShowTaskForm(false)}
+                onSave={handleNodeUpdate}
+              />
+            ) : (
+              <TaskForm
+                node={selectedNode}
+                onClose={() => setShowTaskForm(false)}
+                onSave={handleNodeUpdate}
+                onSaveTemplate={handleSaveTaskTemplate}
+                onDeleteTemplate={handleDeleteTaskTemplate}
+              />
+            )
+          )}
+        </div>
+
+        <ErrorModal
+          isOpen={isOpen}
+          title="Error"
+          message={error}
+          onClose={handleClose}
+        />
           <div style={{
             ...styles.sidebar,
             ...(rightSidebarOpen ? {} : styles.sidebarCollapsed),
@@ -921,20 +966,22 @@ function App() {
             >
               {rightSidebarOpen ? <ChevronRight /> : <ChevronLeft />}
             </button>
-            {rightSidebarOpen && (
-              <TemplatesSidebar
-                templates={templates}
-                taskTemplates={taskTemplates}
-                onDeleteTemplate={deleteTemplate}
-                onDeleteTaskTemplate={handleDeleteTaskTemplate}
-                existingNodes={nodes}
-                onLoadTemplate={handleLoadTemplate}
-              />
-            )}
-          </div>
+          {rightSidebarOpen && (
+            <TemplatesSidebar
+              templates={templates}
+              taskTemplates={taskTemplates}
+              onDeleteTemplate={deleteTemplate}
+              onDeleteTaskTemplate={handleDeleteTaskTemplate}
+              existingNodes={nodes}
+              onLoadTemplate={handleLoadTemplate}
+              setIsDraggingProcessTemplate={setIsDraggingProcessTemplate}
+
+            />
+          )}
         </div>
-      </ReactFlowProvider>
-    </div>
+      </div>
+    </ReactFlowProvider>
+  </div>
 
   );
 }

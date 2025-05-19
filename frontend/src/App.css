@@ -33,6 +33,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -71,6 +72,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -87,12 +89,13 @@
 }
 
 .notfound h2 {
-  font-family: 'Montserrat', sans-serif;;
+  font-family: 'Montserrat', sans-serif;
+  ;
   font-size: 50px;
   font-weight: 900;
   margin: 100px;
   margin-top: 200px;
-  color:#500472;
+  color: #500472;
 }
 
 .notfound a {
@@ -169,7 +172,7 @@
 
 .file-input label {
   display: inline;
-  
+
   width: 200px;
   height: 50px;
   border-radius: 5px;
@@ -393,7 +396,7 @@ input[type="file"] {
   color: #fff;
   font-weight: 500;
   border-radius: 5px;
-  margin-top:10px;
+  margin-top: 10px;
   transition: transform .2s ease-out;
 }
 
@@ -617,9 +620,9 @@ input[type="file"] {
 }
 .search .searchIcon{
  position:"relative";
- margin-left: -2.3%;
- width: 8%;
- height: 8%; 
+  margin-left: -2.3%;
+  width: 8%;
+  height: 8%;
 }
 li:hover{
   background-color: lightgrey;
@@ -676,8 +679,7 @@ td {
 
 }
 
-.custom-table
-th {
+.custom-table th {
 
   padding-right: 50px;
 
@@ -694,12 +696,11 @@ tr:nth-child(even) {
 
 } */
 
-.custom-table
-tbody
-tr:hover {
+.custom-table tbody tr:hover {
 
   background-color: #ddd;
 }
+
 .custom-table thead tr {
   cursor: pointer;
   border-bottom: 1px solid #500472;
@@ -707,6 +708,7 @@ tr:hover {
   color: white;
   font-weight: bold;
 }
+
 .custom-table tbody tr {
   cursor: pointer;
   border-bottom: 2px solid #500472;
@@ -715,28 +717,28 @@ tr:hover {
 }
 
 .custom-user-group-link {
-  background-color: #500472; 
-  color: white; 
-  padding: 10px 20px; 
-  font-size: 14px; 
-  font-weight: bold; 
-  border: none; 
-  border-radius: 5px; 
-  cursor: pointer; 
+  background-color: #500472;
+  color: white;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
   margin-left: 10px;
   margin-top: 20px;
 }
 
 .error-dialog .MuiDialog-paper {
-  top: 25%; 
-  max-width: 500px; 
-  width: 90%; 
-  margin: 0 auto; 
+  top: 25%;
+  max-width: 500px;
+  width: 90%;
+  margin: 0 auto;
 }
 
 .error-dialog .MuiDialogContent-root {
-  overflow: visible; 
-  padding: 16px; 
+  overflow: visible;
+  padding: 16px;
 }
 
 .error-dialog .error-close-btn {
@@ -746,6 +748,7 @@ tr:hover {
   padding: 4px 16px;
   min-width: 80px;
 }
+
 
 .error-dialog .error-close-btn:hover {
   background-color: #8B0000;
@@ -773,4 +776,223 @@ tr:hover {
   top: 10%;
   left: 45%;
   width: 400px;
+}
+
+/* NodeStyles.css */
+
+.dropdown-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+.add-node-button {
+  background-color: #500472 !important;
+  border-color: #500472 !important;
+  font-weight: bold !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 10px;
+  background: white;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 15px;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.node-item {
+  padding: 10px;
+  border-radius: 4px;
+  cursor: grab;
+  font-size: 14px;
+  text-align: center;
+  border: 2px solid;
+  background: #500472;
+  border-color: #500472;
+  color: white;
+  user-select: none;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.node-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.node {
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 14px;
+  border: 2px solid;
+  min-width: 150px;
+}
+
+.node-selected {
+  border: 3px solid #500472 !important;
+  background: white !important;
+  transition: border 0.2s, background 0.2s;
+}
+
+.process-node {
+  border-color: #500472;
+  background: #500472;
+  font-weight: bold;
+  color: white;
+  text-align: center;
+}
+
+.task-node {
+  border-color: #500472;
+  background: white;
+  font-weight: bold;
+  color: black;
+  text-align: center;
+}
+
+.master-node {
+  border-color: #500472;
+  background: white;
+  font-weight: bold;
+  color: black;
+  text-align: center;
+}
+
+.node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.node-description {
+  font-size: 12px;
+  color: #666;
+}
+
+.handle {
+  width: 8px;
+  height: 8px;
+  background: grey;
+  border-radius: 50%;
+  border: 1px solid white;
+}
+
+.templates-sidebar-container {
+  padding: 20px;
+  height: 100%;
+  width: 100%;
+  background: white;
+  display: relative;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sidebar-section {
+  margin-bottom: 100px;
+}
+
+.section-heading {
+  margin-bottom: 15px !important;
+  font-weight: bold !important;
+  font-size: 19px !important;
+}
+
+
+.eye-button {
+  padding: 4px !important;
+}
+
+.child-tasks-dropdown {
+  z-index: 1050;
+}
+
+.child-task-item {
+  padding: 10px;
+  margin-bottom: 5px;
+  border: 1px solid #eee;
+  cursor: grab;
+  background: #f9f9f9;
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+.container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.sidebar {
+  position: relative;
+  transition: width 0.3s ease;
+  background: #ffffff;
+  width: 250px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  /* Prevent content overflow when collapsed */
+}
+
+.sidebar-collapsed {
+  width: 0;
+}
+
+.toggle-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #500472;
+  color: white;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.toggle-left {
+  right: 250px;
+  border-radius: 4px 0 0 4px;
+}
+
+.toggle-right {
+  right: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.flow-container {
+  flex: 1;
+  height: 100%;
+}
+
+.custom-form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #500472;
+}
+
+.custom-form .MuiOutlinedInput-root.Mui-focused input {
+  color: #000000;
+}
+
+.custom-form .MuiInputLabel-root.Mui-focused {
+  color: #500472;
 }
