@@ -102,10 +102,10 @@
   font-family: 'Titillium Web', sans-serif;
   display: inline-block;
   text-transform: uppercase;
-  color: 	white;
+  color: white;
   text-decoration: none;
   border: none;
-  background:#500472;
+  background: #500472;
   padding: 10px 40px;
   font-size: 14px;
   font-weight: 700;
@@ -118,7 +118,7 @@
 
 .loader {
   margin: auto;
-  border: 10px solid #000000b2  ;
+  border: 10px solid #000000b2;
   border-top: 10px solid #500472;
   border-radius: 50%;
   width: 80px;
@@ -127,8 +127,13 @@
 }
 
 @keyframes spin {
-  0% {transform: rotate(0deg);}
-  100% {transform: rotate(360deg);}
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .flex-section {
@@ -147,7 +152,7 @@
 
 .listheading {
   color: black;
-  font-size:20px;
+  font-size: 20px;
   font-weight: bold;
 }
 
@@ -250,6 +255,7 @@ input[type="file"] {
   font-weight: 800;
   transition: transform .2s ease-out;
 }
+
 .custom-file-download-upload-button {
   width: 180px;
   height: 30px;
@@ -417,12 +423,13 @@ input[type="file"] {
   margin-top: 15px;
 }
 
-.note{
+.note {
   padding-left: 20vw;
   height: 200px;
   width: 150px;
 }
-.noteContent{
+
+.noteContent {
   height: 200px;
   width: 25vw;
   border-style: hidden;
@@ -433,25 +440,28 @@ input[type="file"] {
 
 /* toggle in label designing */
 .toggle {
-  position : relative ;
-  display : inline-block;
-  width : 50px;
-  height : 26px;
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
   background-color: #cc0000;
   border-radius: 30px;
   border: 2px solid gray;
   margin-top: 20px;
 }
-     .flexRow{
+
+.flexRow {
   display: flex;
   flex-direction: row;
 }
-.note{
+
+.note {
   padding-left: 20vw;
   height: 200px;
   width: 150px;
 }
-.noteContent{
+
+.noteContent {
   height: 200px;
   width: 25vw;
   border-style: hidden;
@@ -462,10 +472,10 @@ input[type="file"] {
 
 /* toggle in label designing */
 .toggle {
-  position : relative ;
-  display : inline-block;
-  width : 50px;
-  height : 26px;
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
   background-color: #cc0000;
   border-radius: 30px;
   border: 2px solid gray;
@@ -482,24 +492,25 @@ input[type="file"] {
   background-color: gray;
   top: 1px;
   left: 1px;
-  transition:  all 0.5s;
+  transition: all 0.5s;
 }
 
 
 /* Checkbox checked effect */
-.checkbox:checked + .toggle::after {
-  left : 24px;
+.checkbox:checked+.toggle::after {
+  left: 24px;
 }
 
 /* Checkbox checked toggle label bg color */
-.checkbox:checked + .toggle {
+.checkbox:checked+.toggle {
   background-color: green;
 }
 
 /* Checkbox vanished */
 .checkbox {
-  display : none;
+  display: none;
 }
+
 .apartment-file-upload {
   width: 200px;
   height: 36px;
@@ -513,7 +524,7 @@ input[type="file"] {
   color: #fff;
   font-weight: 500;
   border-radius: 5px;
-  margin-top:10px;
+  margin-top: 10px;
   transition: transform .2s ease-out;
 }
 
@@ -587,33 +598,25 @@ input[type="file"] {
   height: 30px;
   width:300px;
 }
-.searchData {
-  visibility: visible; /* Or use 'hidden' / controlled via class toggling */
+.searchData{
+  /* margin-top: 15%; */
   position: absolute;
+  /* left:3%; */
   top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 0 0 4px 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: fit-content;
+  max-height: 300px;
+  box-shadow: rgba(0,0,0,0.35) 0px 5px 15px;
+  overflow: hidden;
+  overflow-y:auto;
 }
-
-.searchData .dataItem {
-  position: relative;
-  height: 30px;
+.searchData .dataItem{
+  width:300px;
+  height:30px;
   display: flex;
   align-items: center;
-  background-color: white;
+  background-color:white;
   border: 0.5px solid #500472;
-  color: black;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
-  cursor: grab;
-  justify-content: space-between;
+  color:black;
 }
 .searchData li{
   margin-left:10px;
@@ -635,16 +638,101 @@ li:hover{
   height: 25px;
   fill: black; /* Icon color */
 }
-.main-display{
+
+.newsearchInputs {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.newsearchInputs input {
+  background-color: white;
+  border: 1px solid #500472;
+  border-radius: 2px;
+  border-top-right-radius: 0px;
+  border-bottom-right-radius: 0px;
+  font-size: 14px;
+  padding: 5px;
+  height: 30px;
+  width: 200px;
+}
+
+.newsearchData {
+  visibility: visible;
+  /* Or use 'hidden' / controlled via class toggling */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.newsearchData .dataItem {
+  position: relative;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border: 0.5px solid #500472;
+  color: black;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  cursor: grab;
+  justify-content: space-between;
+}
+
+.newsearchData li {
+  margin-left: 10px;
+}
+
+.newsearchData .dataItem .dataName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: inline-block;
+}
+
+
+.newsearch .searchIcon {
+  position: "relative";
+  margin-left: -2.3%;
+  width: 8%;
+  height: 8%;
+}
+
+li:hover {
+  background-color: lightgrey;
+}
+
+.search-icon {
+  position: absolute;
+  margin-right: 15px;
+  margin-top: 2px;
+  right: 0;
+  width: 25px;
+  height: 25px;
+  fill: black;
+}
+
+.main-display {
   display: flex;
   flex-direction: row;
 }
+
 h5 {
   font-size: 36px;
   font-weight: bold;
-  color:black;
+  color: black;
   margin-bottom: 20px;
 }
+
 .custom-table {
 
   width: 100%;
@@ -661,17 +749,14 @@ h5 {
 
 }
 
-.custom-table
-thead {
+.custom-table thead {
 
   background-color: #500472;
 
 }
 
-.custom-table
-th,
-.custom-table
-td {
+.custom-table th,
+.custom-table td {
 
   padding: 12px 15px;
 
@@ -914,7 +999,12 @@ tr:nth-child(even) {
 }
 
 .child-tasks-dropdown {
+
   z-index: 1050;
+
+  display: block !important;
+  visibility: visible !important;
+
 }
 
 .child-task-item {

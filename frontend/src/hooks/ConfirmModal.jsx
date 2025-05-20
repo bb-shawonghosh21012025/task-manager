@@ -54,4 +54,3 @@ import {
   };
   
   export default ConfirmModal;
-  

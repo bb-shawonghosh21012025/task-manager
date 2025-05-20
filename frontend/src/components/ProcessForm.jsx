@@ -6,8 +6,8 @@ const ProcessForm = ({ node, onClose, onSave }) => {
     name: node.data.name || '',
     slug: node.data.slug || '',
     description: node.data.description || '',
-    input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null),
-    header: typeof node.data.header === 'string' ? node.data.header : JSON.stringify(node.data.header || {}, null),
+    input_format: typeof node.data.input_format === 'string' ? node.data.input_format : JSON.stringify(node.data.input_format || {}, null, 2),
+    header: typeof node.data.header === 'string' ? node.data.header : JSON.stringify(node.data.header || {}, null, 2),
     email_list: node.data.email_list || '',
     owner_group_ids: node.data.owner_group_ids || '',
   });
