@@ -14,7 +14,7 @@ import ReactFlow, {
 import axios from 'axios';
 import { Button } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import RestoreIcon from '@mui/icons-material/Restore';
+// import RestoreIcon from '@mui/icons-material/Restore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import RestoreIcon from '@mui/icons-material/Restore';
 import SaveIcon from '@mui/icons-material/Save';
@@ -46,6 +46,10 @@ function App() {
   const [hasSaved, setHasSaved] = useState(false);
   const [error, setError] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [initialNodePositions, setInitialNodePositions] = useState({});
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [isDraggingProcessTemplate, setIsDraggingProcessTemplate] = useState(false);
 
   
 
