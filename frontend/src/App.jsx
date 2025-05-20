@@ -230,7 +230,7 @@ function App() {
   };
 
 
-  const handleSaveTemplate = async () => {
+   const handleSaveTemplate = async () => {
 
     const processNode = nodes.filter(node => node.type === 'process')[0];
     const hasMasterNode = nodes.some(node => node.type === 'master');
@@ -251,6 +251,7 @@ function App() {
     }
 
     // console.log(processNode);
+    
 
     const processTemplate = {
       name: processNode.data.name,
@@ -268,23 +269,24 @@ function App() {
     // console.log(sortNodesByDependencies(nodes));
     const sortedNodes = [];
 
-    for (let slug of sortNodesByDependencies(taskNodes)) {
+    for(let slug of sortNodesByDependencies(taskNodes)){
       const node = nodes.find(node => node.data.slug === slug);
-      if (node) {
+      if(node){
         sortedNodes.push(node);
       }
     }
 
-    taskNodes = sortedNodes;
+    taskNodes = sortedNodes;  
     console.log(taskNodes);
 
-    const csvHeaders = ["name", "slug", "description", "help_text", "input_format", "output_format", "dependent_task_slug", "host", "bulk_input", "input_http_method", "api_endpoint", "api_timeout_in_ms", "response_type", "is_json_input_needed", "task_type", "is_active", "is_optional", "eta", "service_id", "email_list", "delay_in_ms", "master_task_template_slug", "action"];
-
+    const csvHeaders = ["name", "slug", "description","help_text", "input_format", "output_format", "dependent_task_slug","host","bulk_input","input_http_method","api_endpoint", "api_timeout_in_ms","response_type","is_json_input_needed","task_type","is_active","is_optional","eta","service_id","email_list","delay_in_ms","master_task_template_slug","action"];
+    
     const escapeCsvValue = (value) => {
       if (value === null || value === undefined) return ""; // Handle null/undefined
       const stringValue = value.toString();
       return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes and wrap in quotes
     };
+  
     // Generate CSV rows
     const csvRows = taskNodes.map((node) => {
       const data = node.data;
@@ -321,7 +323,35 @@ function App() {
       ...csvRows.map(row => row.join(",")) // Add rows
     ].join("\n");
 
-   
+    // const csvRows = taskNodes.map((node)=>{
+    //   // console.log(node.data.input_format);
+    //   const data = node.data;
+    //   return [
+    //     data.name,  
+    //     data.slug,
+    //     data.description,
+    //     data.help_text,
+    //     data.input_format,
+    //     data.output_format,
+    //     data.dependent_task_slug,
+    //     data.host || "",
+    //     data.bulk_input,
+    //     data.input_http_method,
+    //     data.api_endpoint,
+    //     data.api_timeout_in_ms,
+    //     data.response_type || "",
+    //     data.is_json_input_needed,
+    //     data.task_type || "",
+    //     data.is_active,
+    //     data.is_optional,
+    //     data.eta,
+    //     data.service_id,
+    //     data.email_list,
+    //     data.delay_in_ms !== undefined ? BigInt(data.delay_in_ms) : BigInt(0),
+    //     data.master_task_slug || "",
+    //     data.action || "",
+    //   ]
+    // });
 
     // //// master_task_slug and dependency by connecting edges ,action should be update or add. 
     // console.log(csvRows);
@@ -331,28 +361,39 @@ function App() {
     //   ...csvRows.map(row => row.map(value => `"${value}"`).join(",")) // Add rows
     // ].join("\n");
 
+    
+    // console.log(csvContent);
+
     // Create a Blob for the CSV file
     const csvBlob = new Blob([csvContent], { type: "text/csv" });
 
     // Generate a URL for the CSV file
-    const csvUrl = URL.createObjectURL(csvBlob);
-    console.log("CSV Download URL:", csvUrl); // Print the URL to the console
+  const csvUrl = URL.createObjectURL(csvBlob);
+  console.log("CSV Download URL:", csvUrl); // Print the URL to the console
 
-    // Optionally, trigger a download
-    const link = document.createElement("a");
-    link.href = csvUrl;
-    link.setAttribute("download", "task_nodes.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Optionally, trigger a download
+  const link = document.createElement("a");
+  link.href = csvUrl;
+  link.setAttribute("download", "task_nodes.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 
-    // Prepare FormData
+    // Create the `position` object
+    const position = taskNodes.reduce((acc, node) => {
+      acc[node.data.slug] = node.position; // Use slug as the key and position as the value
+      return acc;
+    }, {});
+    console.log("Position object:", position);
+
     const formData = new FormData();
     formData.append("process_template", JSON.stringify(processTemplate));
     formData.append("task_templates", csvBlob, "task_nodes.csv");
     formData.append("owner_group_id", "518,626,767,967,969");
-
-
+    formData.append("position", JSON.stringify(position));
+    
+    
+    
 
     // console.log(formData.get("process_template"));
     // console.log(formData.get("task_templates"));
@@ -365,16 +406,15 @@ function App() {
           "bb-decoded-uid": localStorage.getItem("bb-decoded-uid"),
         },
       });
+  
       alert("Template saved successfully!");
       console.log("Response:", response.data);
     } catch (error) {
       console.error("Error saving template:", error);
-      showError(
-        `${error.response?.data?.[0]?.slug || "Unknown"}<br/>${error.response?.data?.[0]?.reason || "Unknown error"}`
-      );
+      alert(error.response?.data?.message || "An error occurred while saving the template.");
     }
-
-
+    
+    
     // setNodes(updatedNodes);
     // setEdges(updatedEdges);
 
@@ -385,6 +425,7 @@ function App() {
     setHasTemplateChanges(false);
     setRightSidebarOpen(false);
   };
+
 
   const handleLoadTemplate = (template) => {
     if (!reactFlowInstance.current) return;
