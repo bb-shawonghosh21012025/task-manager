@@ -105,17 +105,24 @@ export const TemplatesSidebar = ({
     }
   }
 
+  // ...existing code...
+
   const toggleTaskExpansion = async (task, e) => {
     e.stopPropagation();
+    e.preventDefault();
 
-    // If already open, just close
-    if (activeTaskId === task.id) {
+    // If already loading this task, do nothing
+    if (loadingChildTaskId === task.id) return;
+
+    // If already open and not loading, close
+    if (activeTaskId === task.id && !loadingChildTaskId) {
       setActiveTaskId(null);
       setChildTasksPosition(null);
       return;
     }
 
-    // Set loading for this task
+    // Set active and loading immediately so dropdown stays open
+    setActiveTaskId(task.id);
     setLoadingChildTaskId(task.id);
 
     // Calculate position for the child tasks dropdown
@@ -140,9 +147,9 @@ export const TemplatesSidebar = ({
       console.log("Error fetching child tasks", error);
     }
 
-    setActiveTaskId(task.id);
     setLoadingChildTaskId(null); // Done loading
   };
+
 
   const handleDragStart = (event, template, type) => {
     event.dataTransfer.setData("application/reactflow", type);
@@ -185,22 +192,33 @@ export const TemplatesSidebar = ({
     setIsDragging(false);
   };
 
-  // Close child tasks dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (activeTaskId &&
-        !event.target.closest('.child-tasks-dropdown') &&
-        !event.target.closest('.eye-button')) {
-        setActiveTaskId(null);
-        setChildTasksPosition(null);
-      }
-    };
+  // ...existing imports and code...
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [activeTaskId]);
+  // Place this outside the component if you want, or inside but not inside useEffect
+  function useDropdownClose(activeTaskId, loadingChildTaskId, setActiveTaskId, setChildTasksPosition) {
+    useEffect(() => {
+      function handleClickOutside(event) {
+        // Only close if not loading
+        if (
+          activeTaskId &&
+          !loadingChildTaskId &&
+          !event.target.closest('.child-tasks-dropdown') &&
+          !event.target.closest('.eye-button')
+        ) {
+          setActiveTaskId(null);
+          setChildTasksPosition(null);
+        }
+      }
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [activeTaskId, loadingChildTaskId, setActiveTaskId, setChildTasksPosition]);
+  }
+
+  // In your component body:
+  useDropdownClose(activeTaskId, loadingChildTaskId, setActiveTaskId, setChildTasksPosition);
 
   const filteredProcessTemplates = templates.filter(template => {
     return template.slug?.toLowerCase().includes(processSearchTerm.toLowerCase()) || template.name?.toLowerCase().includes(processSearchTerm.toLowerCase());
@@ -283,7 +301,12 @@ export const TemplatesSidebar = ({
             </svg>
             <div
               className="newsearchData"
-              style={{ visibility: taskTemplateListDisplay }}
+              style={{
+                visibility:
+                  (activeTaskId && taskTemplateListDisplay === "hidden")
+                    ? "visible"
+                    : taskTemplateListDisplay
+              }}
             >
               {filteredMasterTemplates.map((task) => (
                 <div
@@ -303,9 +326,7 @@ export const TemplatesSidebar = ({
                     onClick={(e) => toggleTaskExpansion(task, e)}
                     sx={{ color: 'grey' }}
                   >
-                    {loadingChildTaskId === task.id ? (
-                      <CircularProgress size={18} />
-                    ) : activeTaskId === task.id ? (
+                    {activeTaskId === task.id ? (
                       <VisibilityOffIcon fontSize="small" />
                     ) : (
                       <VisibilityIcon fontSize="small" />
@@ -353,11 +374,17 @@ export const TemplatesSidebar = ({
                   <div
                     style={{
                       maxHeight: '200px',
-                      overflowY: 'auto'
+                      overflowY: 'auto',
+                      minHeight: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: loadingChildTaskId === activeTaskId ? 'center' : 'flex-start'
                     }}
                   >
-                    {childTasks.length > 0 ? (
-                      childTasks?.map(childTask => (
+                    {loadingChildTaskId === activeTaskId ? (
+                      <CircularProgress size={28} />
+                    ) : childTasks.length > 0 ? (
+                      childTasks.map(childTask => (
                         <div
                           key={childTask.id}
                           style={{
@@ -378,9 +405,7 @@ export const TemplatesSidebar = ({
                       ))
                     ) : (
                       <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>
-                        {childTasks.length > 0 ?
-                          "No matching child tasks found" :
-                          "No child tasks available"}
+                        No child tasks available
                       </div>
                     )}
                   </div>

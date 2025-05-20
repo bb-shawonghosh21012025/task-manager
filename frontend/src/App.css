@@ -999,7 +999,8 @@ tr:nth-child(even) {
 }
 
 .child-tasks-dropdown {
-  z-index: 1050;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .child-task-item {
