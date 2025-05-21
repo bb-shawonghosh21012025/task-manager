@@ -366,7 +366,10 @@ export const TemplatesSidebar = ({
                       fontWeight: 'bold',
                       marginBottom: '10px',
                       borderBottom: '1px solid #eee',
-                      paddingBottom: '5px'
+                      paddingBottom: '5px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     Child Tasks for {task.slug}
