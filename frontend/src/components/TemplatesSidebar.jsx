@@ -192,34 +192,6 @@ export const TemplatesSidebar = ({
     setIsDragging(false);
   };
 
-  // ...existing imports and code...
-
-  // Place this outside the component if you want, or inside but not inside useEffect
-  function useDropdownClose(activeTaskId, loadingChildTaskId, setActiveTaskId, setChildTasksPosition) {
-    useEffect(() => {
-      function handleClickOutside(event) {
-        // Only close if not loading
-        if (
-          activeTaskId &&
-          !loadingChildTaskId &&
-          !event.target.closest('.child-tasks-dropdown') &&
-          !event.target.closest('.eye-button')
-        ) {
-          setActiveTaskId(null);
-          setChildTasksPosition(null);
-        }
-      }
-
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }, [activeTaskId, loadingChildTaskId, setActiveTaskId, setChildTasksPosition]);
-  }
-
-  // In your component body:
-  useDropdownClose(activeTaskId, loadingChildTaskId, setActiveTaskId, setChildTasksPosition);
-
   const filteredProcessTemplates = templates.filter(template => {
     return template.slug?.toLowerCase().includes(processSearchTerm.toLowerCase()) || template.name?.toLowerCase().includes(processSearchTerm.toLowerCase());
   });
