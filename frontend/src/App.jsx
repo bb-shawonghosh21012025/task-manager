@@ -384,6 +384,9 @@ function App() {
       acc[node.data.slug] = node.position; // Use slug as the key and position as the value
       return acc;
     }, {});
+    if (processNode) {
+      position[processNode.data.slug] = processNode.position;
+    }
     console.log("Position object:", position);
 
     const formData = new FormData();
