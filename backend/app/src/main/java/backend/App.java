@@ -39,11 +39,11 @@ public class App extends AbstractVerticle{
 
         // ========  connection with database ======== //
         JsonObject config = new JsonObject()
-        .put("url", "jdbc:mysql://localhost:3306/crud_db")            // Database password
+        .put("url", "jdbc:mysql://localhost:3306/taskdb")            // Database password
         .put("max_pool_size", 30)                                 // Database URL
         .put("driver_class", "com.mysql.cj.jdbc.Driver")          // MySQL driver
-        .put("user", "shawon")                                      // Database username
-        .put("password", "1234");                                  // Max pool size (optional)
+        .put("user", "neeraj")                                      // Database username
+        .put("password", "123");                                  // Max pool size (optional)
    
         // Create JDBC client
         client = JDBCClient.createShared(vertx, config);
