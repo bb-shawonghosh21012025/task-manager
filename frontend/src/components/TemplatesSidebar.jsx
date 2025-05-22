@@ -344,16 +344,8 @@ export const TemplatesSidebar = ({
         <Paper
           className="child-tasks-dropdown"
           sx={{
-            position: 'fixed',
             right: `${childTasksPosition.right}px`,
             top: `${childTasksPosition.top}px`,
-            zIndex: 1050,
-            width: '250px',
-            padding: '10px',
-            background: 'white',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
           }}
         >
           {masterTemplates.map(task => {
@@ -379,8 +371,9 @@ export const TemplatesSidebar = ({
                       maxHeight: '200px',
                       overflowY: 'auto',
                       minHeight: '40px',
-                      display: 'flex',
-                      alignItems: 'center',
+                      display: loadingChildTaskId === activeTaskId ? 'flex' : 'block',
+                      flexDirection: 'column',
+                      alignItems: loadingChildTaskId === activeTaskId ? 'center' : 'flex-start',
                       justifyContent: loadingChildTaskId === activeTaskId ? 'center' : 'flex-start'
                     }}
                   >
@@ -393,10 +386,16 @@ export const TemplatesSidebar = ({
                           style={{
                             padding: '10px',
                             marginBottom: '5px',
-                            border: '1px solid #eee',
+                            position: 'relative',
+                            border: '1px solid #500472',
                             cursor: 'grab',
-                            background: '#f9f9f9',
-                            borderRadius: '3px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            alignItems: 'center',
+                            display: 'flex',
+                            maxWidth: '100%',
+                            whiteSpace: 'nowrap',
+                            background: 'white',
                             fontSize: '14px'
                           }}
                           draggable

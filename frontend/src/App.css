@@ -1001,6 +1001,14 @@ tr:nth-child(even) {
 .child-tasks-dropdown {
   display: block !important;
   visibility: visible !important;
+  position: fixed;
+  z-index: 1050;
+  width: 250px;
+  padding: 10px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .child-task-item {
