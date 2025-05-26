@@ -105,51 +105,47 @@ export const TemplatesSidebar = ({
     }
   }
 
-  // ...existing code...
 
-  const toggleTaskExpansion = async (task, e) => {
-    e.stopPropagation();
-    e.preventDefault();
+const toggleTaskExpansion = async (task, e) => {
+  e.stopPropagation();
+  e.preventDefault();
 
-    // If already loading this task, do nothing
-    if (loadingChildTaskId === task.id) return;
+  // If already open and not loading, close
+  if (activeTaskId === task.id && !loadingChildTaskId) {
+    setActiveTaskId(null);
+    setChildTasksPosition(null);
+    setChildTasks([]); // Clear child tasks
+    return;
+  }
 
-    // If already open and not loading, close
-    if (activeTaskId === task.id && !loadingChildTaskId) {
-      setActiveTaskId(null);
-      setChildTasksPosition(null);
-      return;
-    }
+  // If switching to a new task, open the new dropdown
+  setActiveTaskId(task.id);
+  setLoadingChildTaskId(task.id);
 
-    // Set active and loading immediately so dropdown stays open
-    setActiveTaskId(task.id);
-    setLoadingChildTaskId(task.id);
+  // Calculate position for the child tasks dropdown
+  const rect = e.currentTarget.getBoundingClientRect();
+  setChildTasksPosition({
+    top: rect.top,
+    right: window.innerWidth - rect.left + 10
+  });
 
-    // Calculate position for the child tasks dropdown
-    const rect = e.currentTarget.getBoundingClientRect();
-    setChildTasksPosition({
-      top: rect.top,
-      right: window.innerWidth - rect.left + 10
+  try {
+    const response = await axios.get(`http://localhost:8011/bb2admin/v2/task-template/${task.id}`,
+      {
+        headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
+      }
+    );
+
+    setChildTasks([]);
+    response.data.map((data) => {
+      setChildTasks((prev) => [...prev, { ...data, master_task_slug: task.slug }]);
     });
+  } catch (error) {
+    console.log("Error fetching child tasks", error);
+  }
 
-    try {
-      const response = await axios.get(`http://localhost:8011/bb2admin/v2/task-template/${task.id}`,
-        {
-          headers: { 'bb-decoded-uid': localStorage.getItem("bb-decoded-uid") }
-        }
-      );
-
-      setChildTasks([]);
-      response.data.map((data) => {
-        setChildTasks((prev) => [...prev, { ...data, master_task_slug: task.slug }]);
-      });
-    } catch (error) {
-      console.log("Error fetching child tasks", error);
-    }
-
-    setLoadingChildTaskId(null); // Done loading
-  };
-
+  setLoadingChildTaskId(null); // Done loading
+};
 
   const handleDragStart = (event, template, type) => {
     event.dataTransfer.setData("application/reactflow", type);

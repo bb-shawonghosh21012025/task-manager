@@ -386,6 +386,7 @@ const TaskForm = ({ node, onClose, onSave, onSaveTemplate, onDeleteTemplate }) =
                 variant="outlined"
                 fullWidth
                 margin="normal"
+                InputProps={{ readOnly: true }}
                 onChange={(e) => handleFieldChange('dependent_task_slug', e.target.value)}
               />
             </Grid>
